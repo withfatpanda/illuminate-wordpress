@@ -39,8 +39,8 @@ Well, here are some highlights:
 
 ### Create REST APIs with as little code as possible
 
-This example uses anonymous functions to process requests; the use
-of plain-old-PHP-object-style controllers is also supported. 
+Let's create a REST endpoint for loading settings data through 
+WordPress' built-in Options API:
 
 ```php
 namespace YourPlugin;
@@ -105,6 +105,6 @@ The example above introduces the function `Route::when`.
 the current user. Here we are using WordPress' ACL API to restrict
 access to this endpoint to users who have the `administrator` role.
 
-### Working data without context-switching
+### Working with data without the context-switching
 
 More examples coming soon.
