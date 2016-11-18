@@ -1,8 +1,9 @@
 {
     "name": "fatpanda/illuminate-wordpress",
+    "version": "1.0.1",
     "autoload": {
         "psr-4": {
-            "FatPanda\\Illuminate\\WordPress\\": "src/"
+            "FatPanda\\Illuminate\\": "src/"
         }
     },
     "require-dev": {
@@ -10,7 +11,14 @@
     },
     "autoload-dev": {
         "psr-4": {
-            "FatPanda\\Illuminate\\WordPress\\Tests\\": "tests/"
+            "FatPanda\\Illuminate\\Tests\\": "tests/"
         }
+    },
+    "require": {
+        "vlucas/phpdotenv": "~2.2",
+        "nesbot/carbon": "^1.21",
+        "illuminate/validation": "5.3.*",
+        "illuminate/database": "5.3.*",
+        "illuminate/translation": "5.3.*"
     }
 }
