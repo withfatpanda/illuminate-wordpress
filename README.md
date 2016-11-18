@@ -29,9 +29,9 @@ happens to be primarily geared toward managing content hasn't stopped anyone fro
 trying to build it out to suit more sophisticated purposes.
 
 Unfortunately, using WordPress to build applications isn't as easy as 
-building applications using other Frameworks—there is a "WordPress way," 
+building applications using other frameworks—there is a "WordPress way," 
 and it mostly leaves us wanting for easier ways of expressing ourselves
-through code—oh the irony of a content management system that arrests expression!
+through code. (Oh the irony of a content management system that arrests expression!)
 
 ## So, what does easier look like?
 
@@ -51,20 +51,46 @@ $router = new Router('your-plugin', 'v1');
 
 $router->get('/option/{name}', function(\WP_REST_Request $request) {
 	return get_option($request['name']);
-})->when('__return_true'); // all users can read option values
+});
+```
 
-$router->post('/option/{$name}', function(\WP_REST_Request $request) {
+The above makes use of our special `Router` class to create a
+REST API endpoint `/wp-json/your-plugin/v1/option/(?P<name>.*+)`; the
+endpoint behaves exactly as you would expect any endpoint built
+for the WP REST API to behave, but the implementation has the
+benefit of being compact and highly readable.
+
+The function `Router::get`, and its siblings `Router::get`, `Router::post`, 
+`Router::put`, and `Router::delete` (among others) tell `Router` which
+HTTP verb to respond to with the given handler function; in the
+example above, the handler function is only invoked for `GET` requests.
+
+Expanding upon the above, let's add an endpoint that provides for
+writing to our options table: 
+
+```php
+$router->post('/option/{name}', function(\WP_REST_Request $request) {
 	return add_option($request['value']);
 })->args([
 	'value' => [ 
 		'rules' => 'required|numeric', 
-		'description' => 'The value to store in the given option' 
+		'description' => 'The value to store in the given option',
+		'default' => 3.1415
 	]	
-])->when(function() {
-	// only admins can add options
-	return current_user_can('administrator');
-});
+])
+```
 
+The example above introduces the function `Route::args`.
+
+`Route::args` can be used to specify the arguments that are valid
+for the endpoint: in addition to allowing for all the [normal configurations](http://v2.wp-api.org/extending/adding/) 
+available via the WP REST API, `Route::args` introduces a `rules`
+configuration argument through which you can stack any of the 
+validation rules provided by [Illuminate\Validation](https://laravel.com/docs/5.3/validation#available-validation-rules).
+
+One final example—an endpoint for deleting options:
+
+```php
 $router->delete('/option/{name}', function(\WP_REST_Request $request) {
 	return delete_option($request['name']);
 })->when(function() {
@@ -73,15 +99,12 @@ $router->delete('/option/{name}', function(\WP_REST_Request $request) {
 });
 ```
 
-The functions `Router::get`, `Router::post`, `Router::put`, and
-`Router::delete` (among others) are each keyed to the request method
-used to make the request; if `GET /wp-json/your-plugin/v1/option/foo`
-is requested, that first function will be invoked, bound by `Router::get`.
+The example above introduces the function `Route::when`.
 
-The `Route::when` function
-allows you to dictate whether or not the endpoint can be reached by
-the current user. `Route::args` allows you to specify the arguments
-an endpoint receives, validating their content using the simple,
-stackable syntax provided by the Laravel [Validation component](https://laravel.com/docs/5.3/validation).
+`Route::when` is used to dictate whether or not the endpoint can be reached by
+the current user. Here we are using WordPress' ACL API to restrict
+access to this endpoint to users who have the `administrator` role.
 
 ### Working data without context-switching
+
+More examples coming soon.
