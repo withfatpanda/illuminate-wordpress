@@ -77,7 +77,7 @@ $router->post('/option/{name}', function(\WP_REST_Request $request) {
 		'description' => 'The value to store in the given option',
 		'default' => 3.1415
 	]	
-])
+]);
 ```
 
 The example above introduces the function `Route::args`.
@@ -94,7 +94,7 @@ One final example—an endpoint for deleting options:
 $router->delete('/option/{name}', function(\WP_REST_Request $request) {
 	return delete_option($request['name']);
 })->when(function() {
-	// only admins can delete options
+	// only admins can delete options:
 	return current_user_can('administrator');
 });
 ```
