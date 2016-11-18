@@ -60,7 +60,7 @@ endpoint behaves exactly as you would expect any endpoint built
 for the WP REST API to behave, but the implementation has the
 benefit of being compact and highly readable.
 
-The function `Router::get`, and its siblings `Router::get`, `Router::post`, 
+The function `Router::get`, and its siblings `Router::post`, 
 `Router::put`, and `Router::delete` (among others) tell `Router` which
 HTTP verb to respond to with the given handler function; in the
 example above, the handler function is only invoked for `GET` requests.
