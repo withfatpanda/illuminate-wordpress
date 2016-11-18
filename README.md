@@ -71,7 +71,14 @@ $router->delete('/option/{name}', function(\WP_REST_Request $request) {
 ```
 
 This example uses anonymous functions to process requests; the use
-of POPO controllers is also supported. The `Route::when` function
+of POPO controllers is also supported. 
+
+The functions `Router::get`, `Router::post`, `Router::put`, and
+`Router::delete` (among others) are each keyed to the request method
+used to make the request; if `GET /wp-json/your-plugin/v1/option/foo`
+is requested, that first function will be invoked, bound by `Router::get`.
+
+The `Route::when` function
 allows you to dictate whether or not the endpoint can be reached by
 the current user. `Route::args` allows you to specify the arguments
 an endpoint receives, validating their content using the simple,
