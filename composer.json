@@ -1,6 +1,6 @@
 {
     "name": "fatpanda/illuminate-wordpress",
-    "version": "1.0.1",
+    "version": "1.0.2",
     "autoload": {
         "psr-4": {
             "FatPanda\\Illuminate\\": "src/"

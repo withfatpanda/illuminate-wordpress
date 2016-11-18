@@ -39,6 +39,9 @@ Well, here are some highlights:
 
 ### Create REST APIs with as little code as possible
 
+This example uses anonymous functions to process requests; the use
+of plain-old-PHP-object-style controllers is also supported. 
+
 ```php
 namespace YourPlugin;
 
@@ -69,9 +72,6 @@ $router->delete('/option/{name}', function(\WP_REST_Request $request) {
 	return current_user_can('administrator');
 });
 ```
-
-This example uses anonymous functions to process requests; the use
-of POPO controllers is also supported. 
 
 The functions `Router::get`, `Router::post`, `Router::put`, and
 `Router::delete` (among others) are each keyed to the request method
