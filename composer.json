@@ -1,7 +1,14 @@
 {
-    "name": "fatpanda/illuminate-wordpress",
-    "version": "1.0.2",
+    "name": "withfatpanda/illuminate-wordpress",
+    "version": "1.0.3",
     "license": "MIT",
+    "authors": [
+        {
+          "name": "Aaron Collegeman",
+          "email": "aaroncollegeman@gmail.com",
+          "homepage": "https://aaroncollegeman.com"
+        }
+    ],
     "autoload": {
         "psr-4": {
             "FatPanda\\Illuminate\\": "src/"
