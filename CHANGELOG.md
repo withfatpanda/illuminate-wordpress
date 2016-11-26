@@ -1,5 +1,9 @@
 # CHANGELOG
 
+## v1.0.5
+
+* Refactored Plugin baseclass out of scaffolding project and into this one
+
 ## v1.0.4
 
 * Bumping the verison number to test auto-updating
