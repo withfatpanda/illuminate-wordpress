@@ -15,6 +15,8 @@ abstract class CustomPostType extends Post {
 
 	protected $post_type_description = 'Post Type Description';
 
+	protected $taxonomies = [ 'category', 'post_tag '];
+
 	protected $menu_position = 5;
 
 	protected $public = false;
@@ -104,7 +106,7 @@ abstract class CustomPostType extends Post {
 			'description'           => __( $this->post_type_description, $this->text_domain ),
 			'labels'                => $labels,
 			'supports'              => $this->supports(),
-			'taxonomies'            => $this->taxonomies(),
+			'taxonomies'            => $this->getTaxonomies(),
 			'hierarchical'          => $this->hierarchical,
 			'public'                => $this->public,
 			'show_ui'               => is_null($this->show_ui) ? $this->public : $this->show_ui,
@@ -294,22 +296,22 @@ abstract class CustomPostType extends Post {
 
 	protected function supportsTitle()
 	{
-		return false;
+		return true;
 	}
 
 	protected function supportsEditor()
 	{
-		return false;
+		return true;
 	}
 
 	protected function supportsExcerpt()
 	{
-		return false;
+		return true;
 	}
 
 	protected function supportsAuthor()
 	{
-		return false;
+		return true;
 	}
 
 	protected function supportsThumbnail()
@@ -347,16 +349,17 @@ abstract class CustomPostType extends Post {
 		return true;
 	}
 
-	protected function taxonomies()
+	protected function getTaxonomies()
 	{
-		return array( 'category', 'post_tag' );
+		return $this->taxonomies;
 	}
 
-	static function register($class)
+	static function register()
 	{
-		$instance = new $class();
+		$instance = new static();
 
 		if ($instance->post_type === 'post_type') {
+			$class = get_class($instance);
 			throw new \Exception("Post type for {$class} has not been set; set protected property \$post_type to a valid and available post type");
 		}
 
