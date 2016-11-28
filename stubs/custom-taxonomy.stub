@@ -1,0 +1,63 @@
+<?php
+namespace @@PLUGIN_NAMESPACE@@\Models;
+
+use FatPanda\Illuminate\WordPress\Models\CustomTaxonomy;
+
+/**
+ * This is an example of creating a custom taxonomy in WordPress.
+ * For a complete set of properties, refer to the baseclass CustomTaxonomy 
+ * found in withfatpanda/illuminate-wordpress
+ * @see FatPanda\Illuminate\WordPress\Models\CustomTaxonomy
+ * @see https://github.com/withfatpanda/illuminate-wordpress
+ */
+class Department extends CustomTaxonomy {
+
+	/**
+	 * This is the value that is stored in the Taxonomies table,
+	 * thus differentiating items in this taxonomy from all others.
+	 */
+	protected $tax_type = 'department';
+
+	/**
+	 * This is the text domain that is used for translating
+	 * this custom taxonomy's names and admin UI labels into
+	 * other languages; by default it is inherited from the
+	 * text domain that was used when generating your Plugin's
+	 * scaffolding. You can use anything you like.
+	 */
+	protected $text_domain = '@@PLUGIN_TEXT_DOMAIN@@';
+
+	/**
+	 * Which types of data should this taxonomy be applied to?
+	 * The core types include post, page, attachment, revision, 
+	 * and nav_menu_item, but you can also specify custom post
+	 * types, as we have below with "person". If you specify a
+	 * custom post type, make sure it has been registered ahead
+	 * of registering this taxonomy.
+	 */
+	protected $object_types = [ 'post', 'person' ]; 
+
+	/**
+	 * The name used to describe one item from your custom taxonomy
+	 */
+	protected $tax_singular_name = 'Department';
+
+	/**
+	 * The name used to describe a collection of items in your custom taxonomy
+	 */
+	protected $tax_plural_name = 'Departments';
+
+	/**
+	 * Whether or not this custom taxonomy is available to the public;
+	 * if your taxonomy is for storing some sort of administrative
+	 * data, then you can set this to false, hiding both from the public
+	 * view, as well as hiding it from users of the admin UI.
+	 * By default, many other properties of your taxonomy will
+	 * inherit from this setting. For other settings, refer to the base
+	 * class CustomTaxonomy
+	 * @see FatPanda\Illuminate\WordPress\Models\CustomTaxonomy
+ 	 * @see https://github.com/withfatpanda/illuminate-wordpress
+	 */
+	protected $public = true;
+
+}

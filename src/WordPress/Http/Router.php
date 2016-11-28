@@ -3,26 +3,25 @@ namespace FatPanda\Illuminate\WordPress\Http;
 
 use FatPanda\Illuminate\WordPress\Bridge;
 use \FatPanda\Illuminate\WordPress\Http\Controllers\ProfileController;
+use Illuminate\Support\ServiceProvider;
 
 /**
  * A class for simplifying the creation of routes within the WP REST API,
- * patterned on the way Laravel routing is defined.
+ * patterned on the way Laravel routing is designed.
  */
-class Router {
+class Router extends ServiceProvider {
 
 	protected $namespace;
 
 	protected $version;
 
-	protected $laravelAppBoostrapFilePath;
-
 	protected $controllerClasspath;
 
 	protected $defaultPermissionCallback;
 
-	protected $bridge;
-
 	protected $queryVarName;
+
+	protected $finalized = false;
 
 	private static $resourcesActions;
 
@@ -46,21 +45,14 @@ class Router {
 		'anyMethods' => 'GET, POST, PUT, PATCH, DELETE, OPTIONS, HEAD'
 	];
 
-
 	/**
-	 * @param String The namespace for all routes created by this router; should
-	 * be unique to your plugin. 
-	 * @param String The version for all routes created by this router
-	 * @param String Optionally, the path to a Laravel app boostrap file
+	 * @return void
 	 */
-	function __construct($namespace, $version = 'v1', $laravelAppBoostrapFilePath = null, $userClassName = null, $controllerClasspath = 'App') {
-		self::setupResourceActions();
-		$this->namespace = $this->queryVarName = $namespace;
-		$this->version = $version;
-		$this->bridge = new Bridge($this->namespace, $laravelAppBoostrapFilePath, $userClassName);
-		
-		$this->setControllerClasspath($controllerClasspath);
+	function __construct($app) {
+		$this->app = $app;
 
+		static::setupResourceActions();
+		
 		$this->defaultPermissionCallback = function(\WP_REST_Request $request) {
 			return is_user_logged_in();
 		};
@@ -68,12 +60,26 @@ class Router {
 		add_action('init', function() {
 			global $wp;
 			$wp->add_query_var($this->namespace);
+			$this->finalized = true;
 		});
 
 		add_action('template_redirect', function() {
 			global $wp_query;
 			$wp_query->set($this->queryVarName, $this);
+			$this->finalized = true;
 		});
+	}
+
+	function setNamespace($namespace)
+	{
+		$this->namespace = $this->queryVarName = $namespace;
+		return $this;
+	}
+
+	function setVersion($version)
+	{
+		$this->version = $version;
+		return $this;
 	}
 
 	/**
@@ -97,6 +103,7 @@ class Router {
 	private static function setupResourceActions()
 	{
 		if (empty(self::$resourcesActions)) {
+
 			 self::$resourcesActions = [
 				'index' => [
 					'methods' => 'GET',
@@ -167,32 +174,9 @@ class Router {
 					'route' => '/%s',
 				]
 			];
+			
 		}
 	}
-
-	function __get($name)
-	{
-		if ($name === 'bridge') {
-			return $this->bridge;
-
-		} else if ($name === 'app') {
-			return $this->bridge->app();
-
-		} else {
-			return $this->bridge->$name;
-
-		}
-	}
-
-	/**
-	 * If this class is invoked as a function, pass that
-   * invocation into Bridge::app
-   */
-	function __invoke()
- 	{
- 		$args = func_get_args();
- 		return call_user_func_array([ $this->bridge, 'app' ], $args);
- 	}
 
 	/**
 	 * OMG, make creating new rewrite rules in WordPress easier;
@@ -281,7 +265,7 @@ class Router {
 			return call_user_func_array([$this, 'route'], $route_args);	
 		}
 
-		return call_user_func_array([$this->bridge, $name], $args);
+    throw new \BadMethodCallException($name);
 	}
 
 	/**
@@ -305,9 +289,6 @@ class Router {
 				throw new \Exception("Improperly formed controller reference: must be ControllerClassName@methodName. Instead: {$callback}");
 			}
 			$callback = function() use ($matches) {
-				if ($this->bridge->hasLaravelApp()) {
-					$this->bridge->app();
-				}
 				if (!class_exists($matches[1])) {
 					$controllerClass = $this->controllerClasspath . '\\' . $matches[1];
 				} else {
@@ -490,10 +471,6 @@ class Router {
 				$name . sprintf($def['route'], $options['idString']),
 				// inside the callback, we create our controller instance and call the proper action
 				function() use ($action, $controllerClass) {
-					// if this is a Laravel-bound router, bootstrap Laravel
-					if ($this->bridge->hasLaravelApp()) {
-						$this->bridge->app();
-					}
 					if (is_string($controllerClass) && !class_exists($controllerClass)) {
 						$controllerClass = $this->controllerClasspath . '\\' . $controllerClass;
 					}

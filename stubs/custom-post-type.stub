@@ -1,0 +1,68 @@
+<?php
+namespace @@PLUGIN_NAMESPACE@@\Models;
+
+use FatPanda\Illuminate\WordPress\Models\CustomPostType;
+
+/**
+ * This is an example of creating a custom type of content in WordPress.
+ * For a complete set of properties, refer to the baseclass CustomPostType 
+ * found in withfatpanda/illuminate-wordpress
+ * @see FatPanda\Illuminate\WordPress\Models\CustomPostType
+ * @see https://github.com/withfatpanda/illuminate-wordpress
+ */
+class Person extends CustomPostType {
+
+	/**
+	 * This is the value that is stored in the Posts table,
+	 * thus differentiating these types of posts from all others.
+	 */
+	protected $post_type = 'person';
+
+	/**
+	 * This is the text domain that is used for translating
+	 * this custom post type's names and admin UI labels into
+	 * other languages; by default it is inherited from the
+	 * text domain that was used when generating your Plugin's
+	 * scaffolding. You can use anything you like.
+	 */
+	protected $text_domain = '@@PLUGIN_TEXT_DOMAIN@@';
+
+	/**
+	 * The name used to describe one instance of your custom post type
+	 */
+	protected $post_type_singular_name = 'Person';
+
+	/**
+	 * The name used to describe a collection of your custom post types
+	 */
+	protected $post_type_plural_name = 'People';
+
+	/**
+	 * A description for your custom post type
+	 */
+	protected $post_type_description = 'People, stored in WordPress';
+
+	/**
+	 * The taxonomies to associate with your custom post type;
+	 * you can also specify subclasses of our CustomTaxonomy class, 
+	 * but if you do so (as we are here, with "department"), make
+	 * sure that your CustomTaxonomy has been registered first.
+	 * @see FatPanda\Illuminate\WordPress\Models\CustomTaxonomy
+	 * @see https://github.com/withfatpanda/illuminate-wordpress
+	 */
+	protected $taxonomies = [ 'category', 'department' ];
+
+	/**
+	 * Whether or not this custom post type is available to the public;
+	 * if your custom post type is for storing some sort of administrative
+	 * data, then you can set this to false, hiding both from the public
+	 * view, as well as hiding it from users of the admin UI.
+	 * By default, many other properties of your custom post type will
+	 * inherit from this setting. For other settings, refer to the base
+	 * class CustomPostType
+	 * @see FatPanda\Illuminate\WordPress\Models\CustomPostType
+ 	 * @see https://github.com/withfatpanda/illuminate-wordpress
+	 */
+	protected $public = true;
+
+}

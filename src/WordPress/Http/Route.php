@@ -189,28 +189,16 @@ class Route {
 		}
 
 		$args = [ $request, $this ];
-		if ($this->router->bridge->hasLaravelApp()) {
-			$args[] = $this->router->bridge->app();
-		} else {
-			$args[] = null;
-		}
-
+	
 		if (!empty($validation_rules)) {
-			if (!class_exists('Illuminate\Validation\Validator')) {
-				throw new Exception("This route has validation rules specified but Illuminiate\\Validation\\Validator is missing; either use the Laravel app bootstrap, or add Illuminate\\Validation to your project.");			
-			}
 			try {
 				ValidationException::assertValid($request->get_params(), $validation_rules, $validation_messages);
 
 			} catch (Exception $e) {
-				// if we have a Laravel/Lumen app in play, let
-				// the application context handle the exception
-				if ($this->router->bridge->hasLaravelApp()) {
-					throw $e;
-				} else {
-					$response = static::buildErrorResponse($e);
-					return new WP_REST_Response($response, $response['data']['status']);
-				}	
+				// TODO: consider bubbling up to Plugin...
+
+				$response = static::buildErrorResponse($e);
+				return new WP_REST_Response($response, $response['data']['status']);
 			}
 		}
 				
@@ -257,12 +245,10 @@ class Route {
 
 	static public function isDebugMode()
   {
-      if (function_exists('config')) {
-          return config('app.debug');
-      } else if (current_user_can('administrator')) {
+      if (current_user_can('administrator')) {
       	return true;
       } else {
-          return constant('WP_DEBUG') && WP_DEBUG;
+        return constant('WP_DEBUG') && WP_DEBUG;
       }
   }
 
