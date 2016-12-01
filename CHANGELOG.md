@@ -1,5 +1,14 @@
 # CHANGELOG
 
+## v1.1.1
+
+* Added support for token substitution to Router::rewrite, just like Router::get, Router::post, etc.
+* Add session support to the Plugin baseclass, including a SessionHandler that stores session data in WordPress transients
+
+## v1.1.0
+
+* Not promoted
+
 ## v1.0.6
 
 * Fixed bugs in CustomPostType
