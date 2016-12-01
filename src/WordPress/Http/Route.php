@@ -54,7 +54,7 @@ class Route {
 		}
 		$options['args'] = $args;
 
-		$route = $this->substituteUrlArgTokens($this->baseRoute);
+		list($route, $vars) = Router::substituteUrlArgTokens($this->baseRoute);
 
 		register_rest_route("{$this->namespace}/{$this->version}", $route, $options);
 	}
@@ -81,31 +81,7 @@ class Route {
 		return true;
 	}
 
-	private function substituteUrlArgTokens($route)
-	{	
-		$orig = $route;
-		// look for things like this {id} and like this {id?},
-		// optionally preceeded by a forward slash
-		while(preg_match('#/?({([\w\_]+)\??})#i', $route, $matches)) {
-			// get the argument name:
-			$arg = $matches[2];
-			// capture what we're going to replace 
-			$subject = $matches[0];
-			// make the replacement, e.g., (?P<id>[a-z\-\_]+)
-			$replacement = '(?P<'.$arg.'>.+?)';
-			// if the original arg was preceeded by a forward slash, we need to put it back
-			if (stripos($subject, '/') === 0) {
-				$replacement = '/' . $replacement;
-			}
-			// if the original arg has a ?, then we need to wrap our new token in the same
-			if (stripos($subject, '?') !== false) {
-				$replacement = '('.$replacement.')?';
-			}
-			// make the substitution
-			$route = str_replace($subject, $replacement, $route);
-		}
-		return $route;
-	}
+	
 
 	function when($callback)
 	{
@@ -213,43 +189,43 @@ class Route {
 
 	private static function buildErrorResponse(Exception $e)
   {
-  		$response = [ 
-          'type' => get_class($e),
-          'code' => $e->getCode(),
-          'message' => $e->getMessage(),
-          'data' => [
-              'status' => 500
-          ]
-      ];
+		$response = [ 
+      'type' => get_class($e),
+      'code' => $e->getCode(),
+      'message' => $e->getMessage(),
+      'data' => [
+        'status' => 500
+      ]
+    ];
 
-      if ($e instanceof ModelNotFoundException) {
-          $response['data']['status'] = 404;
-      }
+    if ($e instanceof ModelNotFoundException) {
+      $response['data']['status'] = 404;
+    }
 
-      if ($e instanceof HttpException) {
-          $response['data']['status'] = $e->getStatusCode();
-      }
+    if ($e instanceof HttpException) {
+      $response['data']['status'] = $e->getStatusCode();
+    }
 
-      if ($e instanceof \FatPanda\Illuminate\Support\Exceptions\ValidationException) {
-          $response['data']['errors'] = $e->messages();
-      }
+    if ($e instanceof \FatPanda\Illuminate\Support\Exceptions\ValidationException) {
+      $response['data']['errors'] = $e->messages();
+    }
 
-      if (static::isDebugMode()) {
-          $response['line'] = $e->getLine();
-          $response['file'] = $e->getFile();
-          $response['trace'] = $e->getTraceAsString();
-      }
+    if (static::isDebugMode()) {
+      $response['line'] = $e->getLine();
+      $response['file'] = $e->getFile();
+      $response['trace'] = $e->getTraceAsString();
+    }
 
-      return $response;
+    return $response;
   }
 
 	static public function isDebugMode()
   {
-      if (current_user_can('administrator')) {
-      	return true;
-      } else {
-        return constant('WP_DEBUG') && WP_DEBUG;
-      }
+    if (current_user_can('administrator')) {
+    	return true;
+    } else {
+      return constant('WP_DEBUG') && WP_DEBUG;
+    }
   }
 
 }

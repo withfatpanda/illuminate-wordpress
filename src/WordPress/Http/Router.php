@@ -1,7 +1,6 @@
 <?php
 namespace FatPanda\Illuminate\WordPress\Http;
 
-use FatPanda\Illuminate\WordPress\Bridge;
 use \FatPanda\Illuminate\WordPress\Http\Controllers\ProfileController;
 use Illuminate\Support\ServiceProvider;
 
@@ -183,7 +182,8 @@ class Router extends ServiceProvider {
 	 * don't forget to flush afteward. Don't do it with flush_rewrite_rules()
    * unless you're sure it doesn't fire on every request, otherwise your
    * application will fall over.
-	 * @param String The regex for matching URLs
+	 * @param String The route for matching URLs; can include regex, but we'll also
+	 * substitute any {arg} we find to create named components in the regex
 	 * @param mixed What to do when this URL is a match; Strings are passed straight through,
 	 * and are assumed to take the form index.php?whatever=whatever, and may include $matches
 	 * references to your URL regex; you can also specify a callable
@@ -191,9 +191,9 @@ class Router extends ServiceProvider {
 	 * existing rules take precedence; default is "top"
 	 * @see add_rewrite_rule
 	 */
-	function rewrite($regex, $action = 'index.php', $after = 'top')
+	function rewrite($route, $action = 'index.php', $after = 'top')
 	{
-		add_action('init', function() use ($regex, $action, $after) {
+		add_action('init', function() use ($route, $action, $after) {
 			global $wp;
 			$query = null;
 
@@ -216,23 +216,32 @@ class Router extends ServiceProvider {
 					}
 				}
 			}
+
+			// remove any preceeding forward slashes—the underlying rewrite engine doesn't like them
+			$route = ltrim($route, '/');
+
+			list($regex, $tokens) = static::substituteUrlArgTokens($route, true);
 			
 			add_rewrite_rule($regex, $query, $after);
 
 			if (is_callable($action)) {
-				add_action('parse_request', function($wp) use ($regex, $action) {
+				add_action('parse_request', function($wp) use ($regex, $tokens, $action) {
 					if ($regex === $wp->matched_rule) {
-						$args = [ $wp ];
+						$args = [];
 						
 						preg_match('#'.$wp->matched_rule.'#', $wp->request, $matches);
-						$args[] = $matches;
-
-						if ($this->bridge->hasLaravelApp()) {
-							$args[] = $this->bridge->app();
+						// print_r($matches);
+						foreach($tokens as $token) {
+							if (!empty($matches[$token])) {
+								$args[] = $matches[$token];
+							} else {
+								$args[] = null;
+							}
 						}
 
 						$result = call_user_func_array($action, $args);
 						if (empty($result)) {
+							do_action('shutdown');
 							exit;
 						}
 					}
@@ -393,6 +402,40 @@ class Router extends ServiceProvider {
 
 		$this->delete('profile/vote/{post_id}', 'ProfileController@deleteVote');
 
+	}
+
+	/**
+	 * Transform {arg} into regular expression garbage.
+	 * @param string The route, expressed with mustache-wrapped args
+	 * @return string Regular expression garbage... yay.
+	 */
+	static function substituteUrlArgTokens($route, $greedy = false)
+	{	
+		$orig = $route;
+		$tokens = [];
+		// look for things like this {id} and like this {id?},
+		// optionally preceeded by a forward slash
+		while(preg_match('#/?({([\w\_]+)\??})#i', $route, $matches)) {
+			// get the argument name:
+			$arg = $matches[2];
+			$tokens[] = $arg;
+			// capture what we're going to replace 
+			$subject = $matches[0];
+			// make the replacement, e.g., (?P<id>[a-z\-\_]+)
+			$replacement = '(?P<'.$arg.'>.+'.(!$greedy ? '?' : '').')';
+			// if the original arg was preceeded by a forward slash, we need to put it back
+			if (stripos($subject, '/') === 0) {
+				$replacement = '/' . $replacement;
+			}
+			// if the original arg has a ?, then we need to wrap our new token in the same
+			if (stripos($subject, '?') !== false) {
+				$replacement = '('.$replacement.')?';
+			}
+			// make the substitution
+			$route = str_replace($subject, $replacement, $route);
+		}
+		
+		return [ $route, $tokens ];
 	}
 
 	/**

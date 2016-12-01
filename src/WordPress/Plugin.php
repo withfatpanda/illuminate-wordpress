@@ -2,14 +2,19 @@
 namespace FatPanda\Illuminate\WordPress;
 
 use Illuminate\Support\Str;
+use Illuminate\Support\Arr;
 use FatPanda\Illuminate\WordPress\Http\Router;
 use Illuminate\Container\Container;
 use FatPanda\Illuminate\WordPress\Models\CustomPostType;
 use FatPanda\Illuminate\WordPress\Models\CustomTaxonomy;
+use Illuminate\Support\ServiceProvider;
 use Illuminate\Config\Repository as ConfigRepository;
 use Illuminate\Filesystem\Filesystem;
 use Illuminate\Database\Eloquent\Model as Eloquent;
-
+use Illuminate\Http\Request;
+use Illuminate\Http\Response;
+use Illuminate\Session\Middleware\StartSession;
+use Illuminate\Session\CookieSessionHandler;
 
 /**
  * Baseclass for all WordPress plugins, extends a Laravel Container.
@@ -42,6 +47,11 @@ abstract class Plugin extends Container {
 
 	protected $reflection;
 
+  /**
+   * @type Illuminate\Http\Response;
+   */
+  protected $response;
+
  /**
   * The service binding methods that have been executed.
   *
@@ -63,6 +73,9 @@ abstract class Plugin extends Container {
     'Illuminate\Contracts\View\Factory' => 'registerViewBindings',
     'user' => 'registerUserBindings',
     'Illuminate\Database\Eloquent\Factory' => 'registerDatabaseBindings',
+    'request' => 'registerRequestBindings',
+    'Illuminate\Http\Request' => 'registerRequestBindings',
+    'encrypter' => 'registerEncrypterBindings',
     
     // 'auth' => 'registerAuthBindings',
     // 'auth.driver' => 'registerAuthBindings',
@@ -76,7 +89,6 @@ abstract class Plugin extends Container {
     // 'Illuminate\Contracts\Cache\Factory' => 'registerCacheBindings',
     // 'Illuminate\Contracts\Cache\Repository' => 'registerCacheBindings',
     // 'composer' => 'registerComposerBindings',
-    // 'encrypter' => 'registerEncrypterBindings',
     // 'Illuminate\Contracts\Encryption\Encrypter' => 'registerEncrypterBindings',
     // 'Illuminate\Contracts\Events\Dispatcher' => 'registerEventBindings',
     // 'hash' => 'registerHashBindings',
@@ -87,10 +99,8 @@ abstract class Plugin extends Container {
     // 'queue.connection' => 'registerQueueBindings',
     // 'Illuminate\Contracts\Queue\Factory' => 'registerQueueBindings',
     // 'Illuminate\Contracts\Queue\Queue' => 'registerQueueBindings',
-    // 'request' => 'registerRequestBindings',
     // 'Psr\Http\Message\ServerRequestInterface' => 'registerPsrRequestBindings',
     // 'Psr\Http\Message\ResponseInterface' => 'registerPsrResponseBindings',
-    // 'Illuminate\Http\Request' => 'registerRequestBindings',
     // 'translator' => 'registerTranslationBindings',
     // 'url' => 'registerUrlGeneratorBindings',
     // 'validator' => 'registerValidatorBindings',
@@ -138,6 +148,33 @@ abstract class Plugin extends Container {
    *
    * @return void
    */
+  protected function registerRequestBindings()
+  {
+    $this->singleton('Illuminate\Http\Request', function () {
+      // create a new request object
+      $request = Request::capture();
+      // create an arbitrary response object
+      $this->response = new Response;
+      // get a SessionManager from the container
+      $manager = $this['session'];
+      // startup the StartSession middleware
+      $middleware = new StartSession($manager);
+      $middleware->handle($request, function() {
+        return $this->response;
+      });
+      // print out any cookies created by the session system
+      foreach($this->response->headers->getCookies() as $cookie) {
+        header('Set-Cookie: '.$cookie);
+      }
+      return $request;
+    });
+}
+
+  /**
+   * Register container bindings for the application.
+   *
+   * @return void
+   */
   protected function registerDatabaseBindings()
   {
     $this->singleton('db', function () {
@@ -149,6 +186,18 @@ abstract class Plugin extends Container {
 	    );
 	  });
 	}
+
+  /**
+   * Register container bindings for the application.
+   *
+   * @return void
+   */
+  protected function registerEncrypterBindings()
+  {
+    $this->singleton('encrypter', function () {
+        return $this->loadComponent('app', 'Illuminate\Encryption\EncryptionServiceProvider', 'encrypter');
+    });
+  }
 
 	/**
    * Register container bindings for the application.
@@ -231,6 +280,12 @@ abstract class Plugin extends Container {
     $this->instance('path', $this->path());
     $this->registerContainerAliases();
     $this->bindActionsAndFilters();
+
+    $this->configure('services');
+    $this->configure('session');
+    $this->register( \Illuminate\Session\SessionServiceProvider::class );
+    $this->register( \FatPanda\Illuminate\WordPress\Session\WordPressSessionServiceProvider::class );
+    
   }
 
   /**
@@ -308,6 +363,17 @@ abstract class Plugin extends Container {
   }
 
   /**
+   * Retrieves the absolute URL to this plugins' directory.
+   *
+   * @see https://codex.wordpress.org/Function_Reference/plugins_url
+   * @return string
+   */
+  public function url($path = null)
+  {
+    return plugins_url($path, $this->mainFile);
+  }
+
+  /**
    * Register the core container aliases, just like 
    * a Lumen Application would.
    *
@@ -361,6 +427,11 @@ abstract class Plugin extends Container {
 		// get a list of all the methods on this class
 		$methods = $this->reflection->getMethods(\ReflectionMethod::IS_PUBLIC);
 
+    // setup some internal event handlers
+    add_action('plugins_loaded', [ $this, 'finalOnPluginsLoaded' ], 9);
+    add_action('init', [ $this, 'finalOnInit' ], 9);
+    add_action('shutdown', [ $this, 'finalOnShutdown' ], 9);
+
 		// look for candidates for actions or filter hooks
 		foreach($methods as $method) {
 			// skip activation/deactivation hooks (handled above)
@@ -377,10 +448,6 @@ abstract class Plugin extends Container {
 				}
 			}
 
-			// setup some internal event handlers
-			add_action('plugins_loaded', [ $this, 'finalOnPluginsLoaded' ], 9);
-			add_action('init', [ $this, 'finalOnInit' ], 9);
-			
 			// action methods begin with "on"
 			if ('on' === strtolower(substr($method->getName(), 0, 2))) {
 				$action = trim(strtolower(preg_replace('/(?<!\ )[A-Z]/', '_$0', substr($method->getName(), 2))), '_');
@@ -395,6 +462,20 @@ abstract class Plugin extends Container {
 			}
 		}
 	}
+
+  /**
+   * @return void
+   */
+  final function finalOnShutdown()
+  {
+    // save the session data
+    if (!is_null(Arr::get($this->session->getSessionConfig(), 'driver'))) {
+      $driver = $this->session->driver();
+      if (!$driver->getHandler() instanceof CookieSessionHandler) {        
+        $driver->save();
+      }
+    }
+  }
 
 	/**
 	 * Load plugin meta data, finish configuring various features, including
@@ -449,17 +530,17 @@ abstract class Plugin extends Container {
 	 */
 	public function configure($name)
 	{
-	    if (isset($this->loadedConfigurations[$name])) {
-	        return;
-	    }
+    if (isset($this->loadedConfigurations[$name])) {
+      return;
+    }
 
-	    $this->loadedConfigurations[$name] = true;
+    $this->loadedConfigurations[$name] = true;
 
-	    $path = $this->getConfigurationPath($name);
+    $path = $this->getConfigurationPath($name);
 
-	    if ($path) {
-	        $this->make('config')->set($name, require $path);
-	    }
+    if ($path) {
+      $this->make('config')->set($name, require $path);
+    }
 	}
 
 	/**
@@ -530,14 +611,14 @@ abstract class Plugin extends Container {
 		$this->registerCustomDataTypes();		
 	}
 
-	protected function bindActivationAndDeactivationHooks()
+  protected function bindActivationAndDeactivationHooks()
 	{
 		register_activation_hook($this->mainFile, [ $this, 'onActivate' ]);
 		register_activation_hook($this->mainFile, [ $this, 'finalOnActivate' ]);
 		register_deactivation_hook($this->mainFile, [ $this, 'onDeactivate' ]);
 	}
 
-	function finalOnActivate()
+	final function finalOnActivate()
 	{
 		flush_rewrite_rules();
 	}
