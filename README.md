@@ -1,110 +1,68 @@
 # Do more with WordPress, faster.
 
-This library encourages developers to build rich and useful applications
-on top of WordPress by providing simple, object-oriented APIs for setting
-up REST APIs, querying the database, caching data, and interfacing with 
-third-party systems like Stripe and Amazon's AWS.
+This is the way Web Artisans write software for WordPress: with elegance, simplicity, and readability.
 
-Many of these features are powered by the [Laravel Framework](https://laravel.com/docs/5.3), 
-which we have either integrated or emulated to the effect that most of 
-what we love about Laravel—object relational mapping, the service container,
-service providers, schema migrations, event broadcasting—lives side-by-side
-with all that we love about WordPress.
+*How?* By allowing you to build WordPress plugins with [Laravel](https://laravel.com). 
 
-Best of all: this library is 100% compatible with WordPress development
-as you know it today—you can use as many or as few of this project's features
-as you wish!
+These plugins work just like normal WordPress plugins, except that they're 
+each also Laravel [Service Containers](https://laravel.com/docs/5.3/container).
 
-The only rule is that you go *faster* with it than without it.
+This means that in addition to behaving like WordPress plugins, they also behave 
+much like Laravel apps do, and they inherit much of their structure from Laravel's design,
+which is object-oriented, fluent, and effective.
 
-## How did this happen?
+Using this framework brings to your plugin projects the power of both
+the Laravel framework and its community—we think you're going to love
+what you discover there.
 
-The birth of the [WP REST API project](http://v2.wp-api.org/) inspired us
-to re-examine WordPress: can it be something more than a first-class content 
-management system—could it also be an application development platform? 
+We want to be able to build *complex, custom applications* on top of WordPress, and 
+we think this is the best way forward.
 
-The answer is and has been yes—WordPress is, at its core, a really
-sophisticated and complex PHP framework. But just because that framework 
-happens to be primarily geared toward managing content hasn't stopped anyone from 
-trying to build it out to suit more sophisticated purposes.
+## Features
 
-Unfortunately, using WordPress to build applications isn't as easy as 
-building applications using other frameworks—there is a "WordPress way," 
-and it mostly leaves us wanting for easier ways of expressing ourselves
-through code. (Oh the irony of a content management system that arrests expression!)
+* Use Laravel to build WordPress plugins
+* Better organization for plugin files and folders
+* Fluent syntax for defining REST API routes and rewrite rules
+* Simple subclassing to define custom post types, comment types, and taxonomies
+* Make better use of third-party libraries via [Composer](https://getcomposer.org/)
+* Unit testing with PHPUnit and WP-CLI
+* Do more with WordPress, faster
 
-## So, what does easier look like?
+See a complete working example plugin in the [auth-plugin-wordpress repo](https://github.com/withfatpanda/auth-plugin-wordpress)
 
-Well, here are some highlights:
+## Getting Started
 
-### Create REST APIs with as little code as possible
+The easiest way to Illuminate your WordPress plugins is to use our [workbench](https://github.com/withfatpanda/workbench-wordpress) 
+to create a new project from scratch. 
 
-Let's create a REST endpoint for loading settings data through 
-WordPress' built-in Options API:
+A guide to all that you can do with this framework is coming soon.
 
-```php
-namespace YourPlugin;
+In the future, we'll probably write a guide for refactoring existing plugin projects to make use of this framework. Until then,
+workbench is the best way to get started right away.
 
-use FatPanda\Illuminate\WordPress\Http\Router;
+## About This Project
 
-$router = new Router('your-plugin', 'v1');
+To learn more about the thinking behind this project, you can [read this blog post](https://www.aaroncollegeman.com/do-more-with-wordpress-faster/).
 
-$router->get('/option/{name}', function(\WP_REST_Request $request) {
-	return get_option($request['name']);
-});
-```
+Special gratitude goes out to the [Laravel](https://laravel.com) and [Bedrock](https://roots.io/bedrock) projects, without which I never would have had the foundation to make my dreams-in-code a reality.
 
-The above makes use of our special `Router` class to create a
-REST API endpoint `/wp-json/your-plugin/v1/option/(?P<name>.*+)`; the
-endpoint behaves exactly as you would expect any endpoint built
-for the WP REST API to behave, but the implementation has the
-benefit of being compact and highly readable.
+And of course, I can't forget to say thank you to the folks behind [WordPress](https://wordpress.org).
 
-The function `Router::get`, and its siblings `Router::post`, 
-`Router::put`, and `Router::delete` (among others) tell `Router` which
-HTTP verb to respond to with the given handler function; in the
-example above, the handler function is only invoked for `GET` requests.
+You are all beautiful, and I :heart: you.
 
-Expanding upon the above, let's add an endpoint that provides for
-writing to our options table: 
+## About Fat Panda
 
-```php
-$router->post('/option/{name}', function(\WP_REST_Request $request) {
-	return add_option($request['value']);
-})->args([
-	'value' => [ 
-		'rules' => 'required|numeric', 
-		'description' => 'The value to store in the given option',
-		'default' => 3.1415
-	]	
-]);
-```
+[Fat Panda](https://www.withfatpanda.com) is a software product consultancy located in Winchester, VA. We specialize in Laravel, WordPress, and Ionic. No matter where you are in the development of your product, we'll meet you there and work with you to propel you forward.
 
-The example above introduces the function `Route::args`.
+## Contributing
 
-`Route::args` can be used to specify the arguments that are valid
-for the endpoint: in addition to allowing for all the [normal configurations](http://v2.wp-api.org/extending/adding/) 
-available via the WP REST API, `Route::args` introduces a `rules`
-configuration argument through which you can stack any of the 
-validation rules provided by [Illuminate\Validation](https://laravel.com/docs/5.3/validation#available-validation-rules).
+If you run into a problem using this framework, please [open an issue](https://github.com/withfatpanda/workbench-wordpress/issues).
 
-One final example—an endpoint for deleting options:
+If you want to help make this framework amazing, check out the [help wanted](https://github.com/withfatpanda/workbench-wordpress/issues?q=is%3Aissue+is%3Aopen+label%3A%22help+wanted%22) list.
 
-```php
-$router->delete('/option/{name}', function(\WP_REST_Request $request) {
-	return delete_option($request['name']);
-})->when(function() {
-	// only admins can delete options:
-	return current_user_can('administrator');
-});
-```
+If you'd like to support this and the other open source projects Fat Panda is building, please join our community of supporters on [Patreon](https://www.patreon.com/withfatpanda).
 
-The example above introduces the function `Route::when`.
 
-`Route::when` is used to dictate whether or not the endpoint can be reached by
-the current user. Here we are using WordPress' ACL API to restrict
-access to this endpoint to users who have the `administrator` role.
 
-### Working with data without the context-switching
 
-More examples coming soon.
+
