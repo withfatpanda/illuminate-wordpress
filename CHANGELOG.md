@@ -1,5 +1,10 @@
 # CHANGELOG
 
+## v1.2.0
+
+* Changed the way Plugin subclasses are bootstrapped
+* Fix a bug in router version number detection and assignment
+
 ## v1.1.1
 
 * Added support for token substitution to Router::rewrite, just like Router::get, Router::post, etc.

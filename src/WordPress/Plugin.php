@@ -144,7 +144,7 @@ abstract class Plugin extends Container {
   }
 
   /**
-   * Register container bindings for the application.
+   * Register container bindings for the plugin.
    *
    * @return void
    */
@@ -171,7 +171,7 @@ abstract class Plugin extends Container {
 }
 
   /**
-   * Register container bindings for the application.
+   * Register container bindings for the plugin.
    *
    * @return void
    */
@@ -188,7 +188,7 @@ abstract class Plugin extends Container {
 	}
 
   /**
-   * Register container bindings for the application.
+   * Register container bindings for the plugin.
    *
    * @return void
    */
@@ -200,7 +200,7 @@ abstract class Plugin extends Container {
   }
 
 	/**
-   * Register container bindings for the application.
+   * Register container bindings for the plugin.
    *
    * @return void
    */
@@ -212,7 +212,7 @@ abstract class Plugin extends Container {
   }
 
 	/**
-   * Register container bindings for the application.
+   * Register container bindings for the plugin.
    *
    * @return void
    */
@@ -233,7 +233,7 @@ abstract class Plugin extends Container {
   }
 
 	/**
-   * Register container bindings for the application.
+   * Register container bindings for the plugin.
    *
    * @return void
    */
@@ -247,7 +247,7 @@ abstract class Plugin extends Container {
   }
 
   /**
-   * Register container bindings for the application.
+   * Register container bindings for the plugin.
    *
    * @return void
    */
@@ -269,6 +269,102 @@ abstract class Plugin extends Container {
 		$this->bootstrapContainer();
 	}
 
+  static $instance;
+
+  /** 
+   * Get the existing instance of this Plugin.
+   * @return Plugin instance
+   * @throws Exception If the plugin has not been bootstrapped yet.
+   */
+  static function getInstance()
+  {
+    if (empty(static::$instance)) {
+      throw new \Exception("Can't load instance; Plugin has not been bootstrapped yet.");
+    }
+    return static::$instance;
+  }
+
+  /**
+   * Bootstrap a plugin found in the given bootstrap file.
+   * @param string The full path to a Plugin's bootstrap file
+   * @return Plugin
+   */
+  static function bootstrap($bootstrap)
+  {
+    $basepath = realpath(dirname($bootstrap));
+
+    $fs = new Filesystem;
+
+    $pluginSrcFile = $basepath.'/src/plugin.php';
+    
+    // make sure that the plugin file has a namespace
+    if (!preg_match('/namespace\s+(.*?);/i', $fs->get($pluginSrcFile), $matches)) {
+      throw new \Exception("No namespace defined in {$pluginSrcFile}.");
+    }
+
+    // make sure that the plugin namespace has been changed to something unique
+    if ('changethisnamespace' === strtolower($matches[1])) {
+      throw new \Exception("Please change your plugin's namespace.");
+    }
+
+    // having satisfied those requirements, we can now load the plugin file
+    require_once $pluginSrcFile;
+
+    // make sure that we can load the plugin's class
+    $pluginClass = "{$matches[1]}\\Plugin";
+    if (!class_exists($pluginClass)) {
+      throw new \Exception("Please don't rename your plugin class from \"Plugin\"; change only your namespace.");
+    }
+
+    // now check to see if we've been here before...
+    if (!empty($pluginClass::$instance)) {
+      return $pluginClass::$instance;
+    }
+
+    // make sure that we've loaded core source files;
+    // rely on Composer to do this, if it has been installed
+    if (file_exists($composer = $basepath.'/vendor/autoload.php')) {
+      require_once $composer;
+    
+    // if composer is not found to be installed, fallback on this default autoloader
+    } else {
+      spl_autoload_register(function($name) use ($fs) {
+
+        $src = $basepath.'/src';
+        $files = $fs->glob($src.'/**/*.php');
+        
+        static $classmap;
+
+        // build the classmap
+        if ($classmap === null) {
+          $classmap = [];
+          foreach($files as $file) {
+            $contents = $fs->get($file);
+            $namespace = '';
+            if (preg_match('/namespace\s+(.*?);/i', $contents, $matches)) {
+              $namespace = $matches[1];
+            }
+            if (preg_match_all('/class\s+([\w\_]+).*?{/i', $contents, $matches)) {
+              foreach($matches[1] as $className) {
+                $classmap["{$namespace}\\{$className}"] = $file;
+              }
+            }
+          }
+        }
+
+        // if we found a match, load it
+        if (!empty($classmap[$name])) {
+          require_once $classmap[$name];
+        }
+      });
+
+    }
+
+    $pluginClass::$instance = new $pluginClass($bootstrap);
+    
+    return $pluginClass::$instance;
+  }
+
 	/**
    * Bootstrap the plugin container.
    *
@@ -289,7 +385,7 @@ abstract class Plugin extends Container {
   }
 
   /**
-   * Load the Eloquent library for the application.
+   * Load the Eloquent library for the plugin.
    *
    * @return void
    */
@@ -309,7 +405,7 @@ abstract class Plugin extends Container {
   }
 
   /**
-   * Get the base path for the application.
+   * Get the base path for the plugin.
    * TODO: this is probably unnecessary in context, because
    * even if we're running a command line operation, our Plugin
    * is still providing the proper basepath for execution
@@ -332,7 +428,7 @@ abstract class Plugin extends Container {
   }
 
  /**
-   * Get the storage path for the application.
+   * Get the storage path for the plugin.
    *
    * @param  string|null  $path
    * @return string
@@ -353,7 +449,7 @@ abstract class Plugin extends Container {
   }
 
   /**
-   * Determine if the application is running in the console.
+   * Determine if the plugin is running in the console.
    *
    * @return bool
    */
@@ -523,7 +619,7 @@ abstract class Plugin extends Container {
   }
 
   /**
-	 * Load a configuration file into the application.
+	 * Load a configuration file into the plugin.
 	 *
 	 * @param  string  $name
 	 * @return void
@@ -544,7 +640,7 @@ abstract class Plugin extends Container {
 	}
 
 	/**
-   * Register a service provider with the application.
+   * Register a service provider with the plugin.
    *
    * @param  \Illuminate\Support\ServiceProvider|string  $provider
    * @param  array  $options
@@ -648,7 +744,7 @@ abstract class Plugin extends Container {
 		if (empty($this->routerVersion)) {
 			// just use the major version number
 			$routerVersion = 'v1';
-			if (!preg_match('/(\d+).*?/', $this->version, $matches)) {
+			if (preg_match('/(\d+).*?/', $this->version, $matches)) {
 				$routerVersion = $matches[1];
 			}
 
