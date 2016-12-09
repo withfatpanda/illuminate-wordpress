@@ -1,5 +1,9 @@
 # CHANGELOG
 
+## v1.2.1
+
+* Decided not to be such a dick about the namespaces
+
 ## v1.2.0
 
 * Changed the way Plugin subclasses are bootstrapped

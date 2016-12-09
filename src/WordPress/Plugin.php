@@ -303,9 +303,11 @@ abstract class Plugin extends Container {
     }
 
     // make sure that the plugin namespace has been changed to something unique
-    if ('changethisnamespace' === strtolower($matches[1])) {
-      throw new \Exception("Please change your plugin's namespace.");
-    }
+    // XXX: don't be a dick; don't do this
+    
+    // if ('changethisnamespace' === strtolower($matches[1])) {
+    //   throw new \Exception("Please change your plugin's namespace.");
+    // }
 
     // having satisfied those requirements, we can now load the plugin file
     require_once $pluginSrcFile;
