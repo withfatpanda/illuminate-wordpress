@@ -1,5 +1,10 @@
 # CHANGELOG
 
+## v1.2.2
+
+* Fixed another angry namespacing issue
+* I had been placing `$plugin` in a global namespace; didn't think that through, and fixed it
+
 ## v1.2.1
 
 * Decided not to be such a dick about the namespaces

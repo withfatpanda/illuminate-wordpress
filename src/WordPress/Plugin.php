@@ -21,45 +21,47 @@ use Illuminate\Session\CookieSessionHandler;
  */
 abstract class Plugin extends Container {
 
-	protected $mainFile;
+  protected static $plugins;
 
-	protected $basePath;
+  protected $mainFile;
 
-	protected $name;
+  protected $basePath;
 
-	protected $pluginUri;
+  protected $name;
 
-	protected $description;
+  protected $pluginUri;
 
-	protected $version;
+  protected $description;
 
-	protected $author;
+  protected $version;
 
-	protected $authorUri;
+  protected $author;
 
-	protected $pluginData;
+  protected $authorUri;
 
-	protected $registeredDataTypes = [];
+  protected $pluginData;
 
-	protected $routerNamespace;
+  protected $registeredDataTypes = [];
 
-	protected $routerVersion;
+  protected $routerNamespace;
 
-	protected $reflection;
+  protected $routerVersion;
+
+  protected $reflection;
 
   /**
    * @type Illuminate\Http\Response;
    */
   protected $response;
 
- /**
-  * The service binding methods that have been executed.
-  *
-  * @var array
-  */
+  /**
+   * The service binding methods that have been executed.
+   *
+   * @var array
+   */
   protected $ranServiceBinders = [];
 
-	/**
+  /**
    * The available container bindings and their respective load methods.
    *
    * @var array
@@ -76,7 +78,7 @@ abstract class Plugin extends Container {
     'request' => 'registerRequestBindings',
     'Illuminate\Http\Request' => 'registerRequestBindings',
     'encrypter' => 'registerEncrypterBindings',
-    
+
     // 'auth' => 'registerAuthBindings',
     // 'auth.driver' => 'registerAuthBindings',
     // 'Illuminate\Contracts\Auth\Guard' => 'registerAuthBindings',
@@ -105,7 +107,7 @@ abstract class Plugin extends Container {
     // 'url' => 'registerUrlGeneratorBindings',
     // 'validator' => 'registerValidatorBindings',
     // 'Illuminate\Contracts\Validation\Factory' => 'registerValidatorBindings',
-    
+
   ];
 
   /**
@@ -122,6 +124,31 @@ abstract class Plugin extends Container {
    */
   protected $loadedProviders = [];
 
+  function __construct($mainFile)
+  {
+    if (!file_exists($mainFile)) {
+      throw new \Exception("Main file $mainFile does not exist!");
+    }
+
+    $this->mainFile = $mainFile;
+    $this->basePath = dirname($mainFile);
+    $this->bootstrapContainer();
+  }
+
+  /** 
+   * Get the existing instance of this Plugin.
+   * @return Plugin instance
+   * @throws Exception If the plugin has not been bootstrapped yet.
+   */
+  static function getInstance()
+  {
+    $class = get_called_class();
+    if (empty(static::$instance[$class])) {
+      throw new \Exception("Can't load instance; Plugin has not been bootstrapped yet.");
+    }
+    return static::$instance[$class];
+  }
+
   /**
    * Resolve the given type from the container.
    *
@@ -133,8 +160,8 @@ abstract class Plugin extends Container {
   {
     $abstract = $this->getAlias($this->normalize($abstract));
 
-    if (array_key_exists($abstract, $this->availableBindings) &&
-      ! array_key_exists($this->availableBindings[$abstract], $this->ranServiceBinders)) {
+    if (array_key_exists($abstract, $this->availableBindings) && 
+        !array_key_exists($this->availableBindings[$abstract], $this->ranServiceBinders)) {
       $this->{$method = $this->availableBindings[$abstract]}();
 
       $this->ranServiceBinders[$method] = true;
@@ -168,7 +195,7 @@ abstract class Plugin extends Container {
       }
       return $request;
     });
-}
+  }
 
   /**
    * Register container bindings for the plugin.
@@ -178,14 +205,14 @@ abstract class Plugin extends Container {
   protected function registerDatabaseBindings()
   {
     $this->singleton('db', function () {
-	    return $this->loadComponent(
-	        'database', [
-	            'Illuminate\Database\DatabaseServiceProvider',
-	            'Illuminate\Pagination\PaginationServiceProvider',
-	        ], 'db'
-	    );
-	  });
-	}
+      return $this->loadComponent(
+        'database', [
+          'Illuminate\Database\DatabaseServiceProvider',
+          'Illuminate\Pagination\PaginationServiceProvider',
+        ], 'db'
+      );
+    });
+  }
 
   /**
    * Register container bindings for the plugin.
@@ -195,11 +222,11 @@ abstract class Plugin extends Container {
   protected function registerEncrypterBindings()
   {
     $this->singleton('encrypter', function () {
-        return $this->loadComponent('app', 'Illuminate\Encryption\EncryptionServiceProvider', 'encrypter');
+      return $this->loadComponent('app', 'Illuminate\Encryption\EncryptionServiceProvider', 'encrypter');
     });
   }
 
-	/**
+  /**
    * Register container bindings for the plugin.
    *
    * @return void
@@ -211,7 +238,7 @@ abstract class Plugin extends Container {
     });
   }
 
-	/**
+  /**
    * Register container bindings for the plugin.
    *
    * @return void
@@ -227,12 +254,12 @@ abstract class Plugin extends Container {
   {
     $this->singleton('user', function() {
       return function($id = null) {
-        
+
       };
     });
   }
 
-	/**
+  /**
    * Register container bindings for the plugin.
    *
    * @return void
@@ -258,31 +285,25 @@ abstract class Plugin extends Container {
     });
   }
 
-	function __construct($mainFile)
-	{
-		if (!file_exists($mainFile)) {
-			throw new \Exception("Main file $mainFile does not exist!");
-		}
-
-		$this->mainFile = $mainFile;
-		$this->basePath = dirname($mainFile);
-		$this->bootstrapContainer();
-	}
-
-  static $instance;
-
-  /** 
-   * Get the existing instance of this Plugin.
-   * @return Plugin instance
-   * @throws Exception If the plugin has not been bootstrapped yet.
+  /**
+   * @return string The first fully-qualified class name
+   * found in the given PHP source code
    */
-  static function getInstance()
+  protected static function getFirstPluginClassName($source)
   {
-    if (empty(static::$instance)) {
-      throw new \Exception("Can't load instance; Plugin has not been bootstrapped yet.");
+    $namespace = '';
+    if (preg_match('/namespace\s+(.*?);/i', $source, $matches)) {
+      $namespace = $matches[1];
     }
-    return static::$instance;
+
+    $class = 'Plugin';
+    if (preg_match('/class\s+(.*?)\s+extends/i', $source, $matches)) {
+      $class = $matches[1];
+    }
+
+    return "{$namespace}\\{$class}";
   }
+
 
   /**
    * Bootstrap a plugin found in the given bootstrap file.
@@ -297,40 +318,21 @@ abstract class Plugin extends Container {
 
     $pluginSrcFile = $basepath.'/src/plugin.php';
     
-    // make sure that the plugin file has a namespace
-    if (!preg_match('/namespace\s+(.*?);/i', $fs->get($pluginSrcFile), $matches)) {
-      throw new \Exception("No namespace defined in {$pluginSrcFile}.");
-    }
-
-    // make sure that the plugin namespace has been changed to something unique
-    // XXX: don't be a dick; don't do this
+    $source = $fs->get($pluginSrcFile);
     
-    // if ('changethisnamespace' === strtolower($matches[1])) {
-    //   throw new \Exception("Please change your plugin's namespace.");
-    // }
-
-    // having satisfied those requirements, we can now load the plugin file
-    require_once $pluginSrcFile;
-
-    // make sure that we can load the plugin's class
-    $pluginClass = "{$matches[1]}\\Plugin";
-    if (!class_exists($pluginClass)) {
-      throw new \Exception("Please don't rename your plugin class from \"Plugin\"; change only your namespace.");
-    }
-
+    $pluginClass = static::getFirstPluginClassName($source);
+    
     // now check to see if we've been here before...
-    if (!empty($pluginClass::$instance)) {
-      return $pluginClass::$instance;
+    if (!empty(static::$plugins[$pluginClass])) {
+      return static::$plugins[$pluginClass];
     }
 
-    // make sure that we've loaded core source files;
-    // rely on Composer to do this, if it has been installed
-    if (file_exists($composer = $basepath.'/vendor/autoload.php')) {
-      require_once $composer;
-    
-    // if composer is not found to be installed, fallback on this default autoloader
-    } else {
-      spl_autoload_register(function($name) use ($fs) {
+    // the plugin will have already been bootstrapped by
+    // the time we get here IF the autoload file exists;
+    // if it doesn't, setup a fallback class loader
+    if (!file_exists($composer = $basepath.'/vendor/autoload.php')) {
+      
+      spl_autoload_register(function($name) use ($fs, $basepath) {
 
         $src = $basepath.'/src';
         $files = $fs->glob($src.'/**/*.php');
@@ -362,19 +364,19 @@ abstract class Plugin extends Container {
 
     }
 
-    $pluginClass::$instance = new $pluginClass($bootstrap);
+    static::$plugins[$pluginClass] = new $pluginClass($bootstrap);
     
-    return $pluginClass::$instance;
+    return static::$plugins[$pluginClass];
   }
 
-	/**
+  /**
    * Bootstrap the plugin container.
    *
    * @return void
    */
   protected function bootstrapContainer()
   {
-  	$this->instance('app', $this);
+    $this->instance('app', $this);
     $this->instance('path', $this->path());
     $this->registerContainerAliases();
     $this->bindActionsAndFilters();
@@ -403,7 +405,7 @@ abstract class Plugin extends Container {
    */
   public function path()
   {
-      return $this->basePath;
+    return $this->basePath;
   }
 
   /**
@@ -415,7 +417,7 @@ abstract class Plugin extends Container {
    * @return string
    */
   public function basePath($path = null)
-	{
+  {
     if (isset($this->basePath)) {
       return $this->basePath.($path ? '/'.$path : $path);
     }
@@ -429,7 +431,7 @@ abstract class Plugin extends Container {
     return $this->basePath($path);
   }
 
- /**
+  /**
    * Get the storage path for the plugin.
    *
    * @param  string|null  $path
@@ -480,86 +482,86 @@ abstract class Plugin extends Container {
   protected function registerContainerAliases()
   {
     $this->aliases = [
-      'Illuminate\Contracts\Auth\Factory' => 'auth',
-      'Illuminate\Contracts\Auth\Guard' => 'auth.driver',
-      'Illuminate\Contracts\Cache\Factory' => 'cache',
-      'Illuminate\Contracts\Cache\Repository' => 'cache.store',
-      'Illuminate\Contracts\Config\Repository' => 'config',
-      'Illuminate\Container\Container' => 'app',
-      'Illuminate\Contracts\Container\Container' => 'app',
-      'Illuminate\Database\ConnectionResolverInterface' => 'db',
-      'Illuminate\Database\DatabaseManager' => 'db',
-      'Illuminate\Contracts\Encryption\Encrypter' => 'encrypter',
-      'Illuminate\Contracts\Events\Dispatcher' => 'events',
-      'Illuminate\Contracts\Hashing\Hasher' => 'hash',
-      'log' => 'Psr\Log\LoggerInterface',
-      'Illuminate\Contracts\Queue\Factory' => 'queue',
-      'Illuminate\Contracts\Queue\Queue' => 'queue.connection',
-      'request' => 'Illuminate\Http\Request',
-      'Laravel\Lumen\Routing\UrlGenerator' => 'url',
-      'Illuminate\Contracts\Validation\Factory' => 'validator',
-      'Illuminate\Contracts\View\Factory' => 'view',
-      'FatPanda\Illuminate\WordPress\Http\Router' => 'router',
+    'Illuminate\Contracts\Auth\Factory' => 'auth',
+    'Illuminate\Contracts\Auth\Guard' => 'auth.driver',
+    'Illuminate\Contracts\Cache\Factory' => 'cache',
+    'Illuminate\Contracts\Cache\Repository' => 'cache.store',
+    'Illuminate\Contracts\Config\Repository' => 'config',
+    'Illuminate\Container\Container' => 'app',
+    'Illuminate\Contracts\Container\Container' => 'app',
+    'Illuminate\Database\ConnectionResolverInterface' => 'db',
+    'Illuminate\Database\DatabaseManager' => 'db',
+    'Illuminate\Contracts\Encryption\Encrypter' => 'encrypter',
+    'Illuminate\Contracts\Events\Dispatcher' => 'events',
+    'Illuminate\Contracts\Hashing\Hasher' => 'hash',
+    'log' => 'Psr\Log\LoggerInterface',
+    'Illuminate\Contracts\Queue\Factory' => 'queue',
+    'Illuminate\Contracts\Queue\Queue' => 'queue.connection',
+    'request' => 'Illuminate\Http\Request',
+    'Laravel\Lumen\Routing\UrlGenerator' => 'url',
+    'Illuminate\Contracts\Validation\Factory' => 'validator',
+    'Illuminate\Contracts\View\Factory' => 'view',
+    'FatPanda\Illuminate\WordPress\Http\Router' => 'router',
     ];
   }
 
-	/**
-	 * Using reflection, put together a list of all the action and filter hooks
-	 * defined by this class, and then setup bindings for them.
-	 * Action hooks begin with the prefix "on" and filter hooks begin with the
-	 * prefix "filter". Additionally, look for the @priority doc comment, and
-	 * use that to configure the priority loading order for the hook. Finally, count
-	 * the number of parameters in the method signature, and use that to control
-	 * the number of arguments that should be passed to the hook when it is invoked.
-	 * 
-	 * @return void
-	 */
-	protected function bindActionsAndFilters()
-	{
-		// setup activation and deactivation hooks
-		$this->bindActivationAndDeactivationHooks();
+  /**
+   * Using reflection, put together a list of all the action and filter hooks
+   * defined by this class, and then setup bindings for them.
+   * Action hooks begin with the prefix "on" and filter hooks begin with the
+   * prefix "filter". Additionally, look for the @priority doc comment, and
+   * use that to configure the priority loading order for the hook. Finally, count
+   * the number of parameters in the method signature, and use that to control
+   * the number of arguments that should be passed to the hook when it is invoked.
+   * 
+   * @return void
+   */
+  protected function bindActionsAndFilters()
+  {
+    // setup activation and deactivation hooks
+    $this->bindActivationAndDeactivationHooks();
 
-		// reflect on the contents of this class
-		$this->reflection = new \ReflectionClass($this);
+    // reflect on the contents of this class
+    $this->reflection = new \ReflectionClass($this);
 
-		// get a list of all the methods on this class
-		$methods = $this->reflection->getMethods(\ReflectionMethod::IS_PUBLIC);
+    // get a list of all the methods on this class
+    $methods = $this->reflection->getMethods(\ReflectionMethod::IS_PUBLIC);
 
     // setup some internal event handlers
     add_action('plugins_loaded', [ $this, 'finalOnPluginsLoaded' ], 9);
     add_action('init', [ $this, 'finalOnInit' ], 9);
     add_action('shutdown', [ $this, 'finalOnShutdown' ], 9);
 
-		// look for candidates for actions or filter hooks
-		foreach($methods as $method) {
-			// skip activation/deactivation hooks (handled above)
-			if ($method->getName() === 'onActivate' || $method->getName() === 'onDeactivate') {
-				continue;
-			}
+    // look for candidates for actions or filter hooks
+    foreach($methods as $method) {
+      // skip activation/deactivation hooks (handled above)
+      if ($method->getName() === 'onActivate' || $method->getName() === 'onDeactivate') {
+        continue;
+      }
 
-			// look in codedoc for @priority
-			$priority = 10;
-			$docComment = $method->getDocComment();
-			if ($docComment !== false) {
-				if (preg_match('/@priority\s+(\d+)/', $docComment, $matches)) {
-					$priority = (int) $matches[1];
-				}
-			}
+      // look in codedoc for @priority
+      $priority = 10;
+      $docComment = $method->getDocComment();
+      if ($docComment !== false) {
+        if (preg_match('/@priority\s+(\d+)/', $docComment, $matches)) {
+          $priority = (int) $matches[1];
+        }
+      }
 
-			// action methods begin with "on"
-			if ('on' === strtolower(substr($method->getName(), 0, 2))) {
-				$action = trim(strtolower(preg_replace('/(?<!\ )[A-Z]/', '_$0', substr($method->getName(), 2))), '_');
-				$parameterCount = $method->getNumberOfParameters();
-				add_action($action, [ $this, $method->getName() ], $priority, $parameterCount);
-			
-			// filter methods begin with "filter"
-			} else if ('filter' === strtolower(substr($method->getName(), 0, 6))) {
-				$filter = trim(strtolower(preg_replace('/(?<!\ )[A-Z]/', '_$0', substr($method->getName(), 6))), '_');
-				$parameterCount = $method->getNumberOfParameters();
-				add_action($filter, [ $this, $method->getName() ], $priority, $parameterCount);
-			}
-		}
-	}
+      // action methods begin with "on"
+      if ('on' === strtolower(substr($method->getName(), 0, 2))) {
+        $action = trim(strtolower(preg_replace('/(?<!\ )[A-Z]/', '_$0', substr($method->getName(), 2))), '_');
+        $parameterCount = $method->getNumberOfParameters();
+        add_action($action, [ $this, $method->getName() ], $priority, $parameterCount);
+
+      // filter methods begin with "filter"
+      } else if ('filter' === strtolower(substr($method->getName(), 0, 6))) {
+        $filter = trim(strtolower(preg_replace('/(?<!\ )[A-Z]/', '_$0', substr($method->getName(), 6))), '_');
+        $parameterCount = $method->getNumberOfParameters();
+        add_action($filter, [ $this, $method->getName() ], $priority, $parameterCount);
+      }
+    }
+  }
 
   /**
    * @return void
@@ -575,33 +577,33 @@ abstract class Plugin extends Container {
     }
   }
 
-	/**
-	 * Load plugin meta data, finish configuring various features, including
-	 * the REST router and text translation.
-	 * @see https://codex.wordpress.org/Plugin_API/Action_Reference/plugins_loaded
-	 * 
-	 * @return void
-	 */
-	final function finalOnPluginsLoaded()
-	{
-		// if we don't have the get_plugin_data() function, load it
-		if (!function_exists('get_plugin_data')) {
-			require_once ABSPATH.'wp-admin/includes/plugin.php';
-		}
+  /**
+   * Load plugin meta data, finish configuring various features, including
+   * the REST router and text translation.
+   * @see https://codex.wordpress.org/Plugin_API/Action_Reference/plugins_loaded
+   * 
+   * @return void
+   */
+  final function finalOnPluginsLoaded()
+  {
+    // if we don't have the get_plugin_data() function, load it
+    if (!function_exists('get_plugin_data')) {
+      require_once ABSPATH.'wp-admin/includes/plugin.php';
+    }
 
-		$this->pluginData = get_plugin_data($this->mainFile);
-		
-		foreach($this->pluginData as $key => $value) {
-			$propertyName = Str::camel($key);
-			$this->{$propertyName} = $value;
-		}
+    $this->pluginData = get_plugin_data($this->mainFile);
+    
+    foreach($this->pluginData as $key => $value) {
+      $propertyName = Str::camel($key);
+      $this->{$propertyName} = $value;
+    }
 
-		$this->bootRouter();
+    $this->bootRouter();
 
-		$this->loadTextDomain();
-	}
+    $this->loadTextDomain();
+  }
 
-	/**
+  /**
    * Configure and load the given component and provider.
    *
    * @param  string  $config
@@ -611,23 +613,23 @@ abstract class Plugin extends Container {
    */
   public function loadComponent($config, $providers, $return = null)
   {
-      $this->configure($config);
+    $this->configure($config);
 
-      foreach ((array) $providers as $provider) {
-          $this->register($provider);
-      }
+    foreach ((array) $providers as $provider) {
+      $this->register($provider);
+    }
 
-      return $this->make($return ?: $config);
+    return $this->make($return ?: $config);
   }
 
   /**
-	 * Load a configuration file into the plugin.
-	 *
-	 * @param  string  $name
-	 * @return void
-	 */
-	public function configure($name)
-	{
+   * Load a configuration file into the plugin.
+   *
+   * @param  string  $name
+   * @return void
+   */
+  public function configure($name)
+  {
     if (isset($this->loadedConfigurations[$name])) {
       return;
     }
@@ -639,9 +641,9 @@ abstract class Plugin extends Container {
     if ($path) {
       $this->make('config')->set($name, require $path);
     }
-	}
+  }
 
-	/**
+  /**
    * Register a service provider with the plugin.
    *
    * @param  \Illuminate\Support\ServiceProvider|string  $provider
@@ -668,9 +670,9 @@ abstract class Plugin extends Container {
     if (method_exists($provider, 'boot')) {
       return $this->call([$provider, 'boot']);
     }
-	}
+  }
 
-	/**
+  /**
    * Get the path to the given configuration file.
    *
    * If no name is provided, then we'll return the path to the config folder.
@@ -688,7 +690,7 @@ abstract class Plugin extends Container {
       } elseif (file_exists($path = __DIR__.'/../config/')) {
         return $path;
       }
-	  } else {
+    } else {
       $appConfigPath = $this->basePath('config').'/'.$name.'.php';
 
       if (file_exists($appConfigPath)) {
@@ -699,103 +701,103 @@ abstract class Plugin extends Container {
     }
   }
 
-	/**
-	 * @see https://codex.wordpress.org/Plugin_API/Action_Reference/init
-	 *
-	 * @return void
-	 */
-	final function finalOnInit()
-	{
-		$this->registerCustomDataTypes();		
-	}
+  /**
+   * @see https://codex.wordpress.org/Plugin_API/Action_Reference/init
+   *
+   * @return void
+   */
+  final function finalOnInit()
+  {
+    $this->registerCustomDataTypes();   
+  }
 
   protected function bindActivationAndDeactivationHooks()
-	{
-		register_activation_hook($this->mainFile, [ $this, 'onActivate' ]);
-		register_activation_hook($this->mainFile, [ $this, 'finalOnActivate' ]);
-		register_deactivation_hook($this->mainFile, [ $this, 'onDeactivate' ]);
-	}
+  {
+    register_activation_hook($this->mainFile, [ $this, 'onActivate' ]);
+    register_activation_hook($this->mainFile, [ $this, 'finalOnActivate' ]);
+    register_deactivation_hook($this->mainFile, [ $this, 'onDeactivate' ]);
+  }
 
-	final function finalOnActivate()
-	{
-		flush_rewrite_rules();
-	}
+  final function finalOnActivate()
+  {
+    flush_rewrite_rules();
+  }
 
-	protected function registerCustomDataTypes()
-	{
-		if (!empty($this->registeredDataTypes)) {
+  protected function registerCustomDataTypes()
+  {
+    if (!empty($this->registeredDataTypes)) {
       $this->withEloquent();
 
-			foreach($this->registeredDataTypes as $class) {
-				call_user_func($class . '::register');
-			}
-		}
-	}
+      foreach($this->registeredDataTypes as $class) {
+        call_user_func($class . '::register');
+      }
+    }
+  }
 
-	protected function loadTextDomain()
-	{
-		load_plugin_textdomain( $this->textDomain, false, dirname( plugin_basename($this->mainFile) ) . rtrim($this->domainPath, '/') . '/' );
-	}
+  protected function loadTextDomain()
+  {
+    load_plugin_textdomain( $this->textDomain, false, dirname( plugin_basename($this->mainFile) ) . rtrim($this->domainPath, '/') . '/' );
+  }
 
-	protected function bootRouter()
-	{
-		if (empty($this->routerNamespace)) {
-			$this->setRouterNamespace( Str::slug($this->name) );
-		}
+  protected function bootRouter()
+  {
+    if (empty($this->routerNamespace)) {
+      $this->setRouterNamespace( Str::slug($this->name) );
+    }
 
-		if (empty($this->routerVersion)) {
-			// just use the major version number
-			$routerVersion = 'v1';
-			if (preg_match('/(\d+).*?/', $this->version, $matches)) {
-				$routerVersion = $matches[1];
-			}
+    if (empty($this->routerVersion)) {
+      // just use the major version number
+      $routerVersion = 'v1';
+      if (preg_match('/(\d+).*?/', $this->version, $matches)) {
+        $routerVersion = $matches[1];
+      }
 
-			$this->setRouterVersion($routerVersion);
-		}
+      $this->setRouterVersion($routerVersion);
+    }
 
-		$router = new Router($this);
-		$router->setNamespace($this->routerNamespace);
-		$router->setVersion($this->routerVersion);
-		$this->instance('router', $router);
+    $router = new Router($this);
+    $router->setNamespace($this->routerNamespace);
+    $router->setVersion($this->routerVersion);
+    $this->instance('router', $router);
 
-		$plugin = $this;
-		require $this->path() . '/src/routes.php';
-	}
+    $plugin = $this;
+    require $this->path() . '/src/routes.php';
+  }
 
-	function getPluginData()
-	{
-		return $this->pluginData;
-	}
+  function getPluginData()
+  {
+    return $this->pluginData;
+  }
 
-	function setRouterNamespace($namespace)
-	{
-		$this->routerNamespace = $namespace;
-		return $this;
-	}
+  function setRouterNamespace($namespace)
+  {
+    $this->routerNamespace = $namespace;
+    return $this;
+  }
 
-	function setRouterVersion($version)
-	{
-		$this->routerVersion = $version;
-		return $this;
-	}
+  function setRouterVersion($version)
+  {
+    $this->routerVersion = $version;
+    return $this;
+  }
 
-	abstract function onActivate();
+  abstract function onActivate();
 
-	abstract function onDeactivate();
+  abstract function onDeactivate();
 
-	function registerCustomPostType($class)
-	{
-		$this->registeredDataTypes[(string) $class] = $class;
-	}
+  function registerCustomPostType($class)
+  {
+    $this->registeredDataTypes[(string) $class] = $class;
+  }
 
-	function registerCustomTaxonomy($class)
-	{
-		$this->registeredDataTypes[(string) $class] = $class;
-	}
+  function registerCustomTaxonomy($class)
+  {
+    $this->registeredDataTypes[(string) $class] = $class;
+  }
 
-	function unregister($class)
-	{
-		unset($this->registeredDataTypes[(string) $class]);
-	}
+  function unregister($class)
+  {
+    unset($this->registeredDataTypes[(string) $class]);
+  }
 
 }

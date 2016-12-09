@@ -1,12 +1,12 @@
 {
     "name": "withfatpanda/illuminate-wordpress",
-    "version": "1.2.1",
+    "version": "1.2.2",
     "license": "MIT",
     "authors": [
         {
-          "name": "Aaron Collegeman",
-          "email": "aaroncollegeman@gmail.com",
-          "homepage": "https://aaroncollegeman.com"
+          "name": "Fat Panda",
+          "email": "yo@withfatpanda.com",
+          "homepage": "https://withfatpanda.com"
         }
     ],
     "autoload": {
