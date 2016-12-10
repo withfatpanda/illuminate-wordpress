@@ -145,18 +145,17 @@ abstract class Plugin extends Container {
   /** 
    * Get the existing instance of this Plugin.
    * @param string Optionally, the name or classname of the Plugin to retrieve
-   * @return Plugin instance
-   * @throws Exception If the plugin has not been bootstrapped yet.
+   * @return Plugin instance if bootstrapped, otherwise false
    */
   static function getInstance($name = null)
   {
     if (empty($name)) {
       $name = get_called_class();
     }
-    if (empty(static::$instance[$name])) {
-      throw new \Exception("Can't load {$name} Plugin instance; it has not been bootstrapped yet.");
+    if (!empty(static::$plugins[$name])) {
+      return static::$plugins[$name];
     }
-    return static::$instance[$name];
+    return false;
   }
 
   /**
@@ -453,7 +452,10 @@ abstract class Plugin extends Container {
 
     }
 
-    static::$plugins[$pluginClass] = new $pluginClass($bootstrap);
+    $plugin = new $pluginClass($bootstrap);
+
+    static::$plugins[$pluginClass] = $plugin;
+    static::$plugins[$plugin->getSlug()] = $plugin;
     
     return static::$plugins[$pluginClass];
   }
@@ -670,6 +672,14 @@ abstract class Plugin extends Container {
   }
 
   /**
+   * @return string Some unique content to use in namespaces and such
+   */
+  function getSlug()
+  {
+    return basename( dirname( plugin_basename($this->mainFile) ) );
+  }
+
+  /**
    * @return void
    */
   final function finalOnShutdown()
@@ -880,13 +890,13 @@ abstract class Plugin extends Container {
 
   protected function loadTextDomain()
   {
-    load_plugin_textdomain( $this->textDomain, false, dirname( plugin_basename($this->mainFile) ) . rtrim($this->domainPath, '/') . '/' );
+    load_plugin_textdomain( $this->textDomain, false, $this->getSlug() . rtrim($this->domainPath, '/') . '/' );
   }
 
   protected function bootRouter()
   {
     if (empty($this->routerNamespace)) {
-      $this->setRouterNamespace( dirname(plugin_basename($this->mainFile)) );
+      $this->setRouterNamespace( $this->getSlug() );
     }
 
     if (empty($this->routerVersion)) {

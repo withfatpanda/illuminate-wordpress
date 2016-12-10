@@ -13,6 +13,8 @@
 * Added support for running Commands through Artisan Console via WP-CLI
 * Now using `plugin_basename($this->mainFile)` to generate default router namespace
 * Global `plugin($name)` function can be used to load any bootstrapped instance of a Bamboo Plugin
+* Setup unit testing and Travis-CI to guarantee future build stability
+* Added `FatPanda\Illuminate\WordPress\TestCase` class to ease some plugin unit testing tasks, e.g., REST API endpoint testing
 
 ## v1.2.2
 

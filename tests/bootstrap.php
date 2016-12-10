@@ -15,7 +15,7 @@ require_once $_tests_dir . '/includes/functions.php';
  * Manually load our tes tplugin
  */
 function _manually_load_plugin() {
-	require dirname( dirname( __FILE__ ) ) . '/tests/plugin/bootstrap.php';
+	require dirname( dirname( __FILE__ ) ) . '/tests/test-plugin/bootstrap.php';
 }
 tests_add_filter( 'muplugins_loaded', '_manually_load_plugin' );
 
