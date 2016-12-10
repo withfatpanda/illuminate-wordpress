@@ -1,11 +1,11 @@
 <?php
-namespace FatPanda\Illuminate\WordPress\Models;
+namespace FatPanda\Illuminate\WordPress;
 
-abstract class CustomTaxonomy {
+abstract class Taxonomy implements CustomSchema {
 
 	protected $tax_type = 'custom_taxonomy';
 
-	protected $text_domain = 'text_domain';
+	protected $text_domain = null;
 
 	protected $object_types = [ 'post' ];
 
@@ -29,7 +29,7 @@ abstract class CustomTaxonomy {
 
 	protected $meta_box_cb = null;
 
-	protected function buildConfig()
+	public function buildConfig(Plugin $plugin)
 	{
 		$labels = array(
 			'name'                       => _x( $this->tax_plural_name, 'Taxonomy General Name', $this->text_domain ),
@@ -74,16 +74,11 @@ abstract class CustomTaxonomy {
 		return $this->object_types;
 	}
 
-	static function register()
+	static function register(Plugin $plugin)
 	{
 		$instance = new static();
 
-		if ($instance->tax_type === 'custom_taxonomy') {
-			$class = get_class($instance);
-			throw new \Exception("Taxonomy type for {$class} has not been set; set protected property \$tax_type to a valid and available taxonomy type name");
-		}
-
-		register_taxonomy($instance->tax_type, $instance->getObjectTypes(), $instance->buildConfig());
+		register_taxonomy($instance->tax_type, $instance->getObjectTypes(), $instance->buildConfig($plugin));
 	}
 
 }

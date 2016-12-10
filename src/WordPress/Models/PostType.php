@@ -1,13 +1,13 @@
 <?php 
-namespace FatPanda\Illuminate\WordPress\Models;
+namespace FatPanda\Illuminate\WordPress;
 
-abstract class CustomPostType extends Post {
+abstract class PostType extends Post implements CustomSchema {
 
 	protected $primaryKey = 'ID';
 
 	protected $post_type = 'post_type';
 
-	protected $text_domain = 'text_domain';
+	protected $text_domain = null;
 
 	protected $post_type_singular_name = 'Post Type';
 
@@ -41,37 +41,14 @@ abstract class CustomPostType extends Post {
 
 	protected $capability_type = 'page';
 
-	protected $wp_error = null;
-
 	protected $show_in_rest = false;
 
-	protected $postAttributes = [
-		'ID',
-		'id',
-		'post_author',
-		'post_date',
-		'post_date_gmt',
-		'post_content',
-		'post_content_filtered',
-		'post_title',
-		'post_excerpt',
-		'post_status',
-		'post_type',
-		'comment_status',
-		'ping_status',
-		'post_password',
-		'post_name',
-		'to_ping',
-		'pinged',
-		'post_modified',
-		'post_modified_gmt',
-		'post_parent',
-		'menu_order',
-		'post_mime_type',
-		'guid'
-	];
+	public function buildConfig(Plugin $plugin) {
 
-	protected function buildConfig() {
+		if (is_null($this->text_domain)) {
+			$data = $plugin->getPluginData();
+			$this->text_domain = $data['TextDomain'];
+		}
 
 		$labels = array(
 			'name'                  => _x( $this->post_type_plural_name, 'Post Type General Name', $this->text_domain ),
@@ -125,104 +102,7 @@ abstract class CustomPostType extends Post {
 		return $args;
 	}
 
-	/**
-   * Perform a model update operation.
-   *
-   * @param  \Illuminate\Database\Eloquent\Builder  $query
-   * @param  array  $options
-   * @return bool
-   */
-  protected function performUpdate(\Illuminate\Database\Eloquent\Builder $query, array $options = [])
-  {
-    $dirty = $this->getDirty();
-
-    if (count($dirty) > 0) {
-      // If the updating event returns false, we will cancel the update operation so
-      // developers can hook Validation systems into their models and cancel this
-      // operation if the model does not pass validation. Otherwise, we update.
-      if ($this->fireModelEvent('updating') === false) {
-        return false;
-      }
-
-      $attributes = $this->attributes;
-      unset($attributes['wp_error']);
-
-      $result = wp_update_post($attributes, array_key_exists('wp_error', $options) ? (bool) $options['wp_error'] : null);
-
-	    if ($result) {
-
-		    if (is_wp_error($result)) {
-		    	$this->wp_error = $result;
-		    	return false;
-		    } else {
-		    	$this->fireModelEvent('updated', false);
-		    }
-
-		  } else {
-		  	// unknown error state
-		  	return false;
-		  }
-
-
-    }
-
-    return true;
-  }
-
-  /**
-   * Perform a model insert operation.
-   *
-   * @param  \Illuminate\Database\Eloquent\Builder  $query
-   * @param  array  $options
-   * @return bool
-   */
-  protected function performInsert(\Illuminate\Database\Eloquent\Builder $query, array $options = [])
-  {
-  	// clear out last error
-    $this->wp_error = null;
-
-    // fire normal Eloquent event
-    if ($this->fireModelEvent('creating') === false) {
-        return false;
-    }
-
-    $attributes = $this->attributes;
-    unset($attributes['wp_error']);
-
-    $result = wp_insert_post($attributes, array_key_exists('wp_error', $options) ? (bool) $options['wp_error'] : null);
-
-    if ($result) {
-
-	    if (is_wp_error($result)) {
-	    	$this->wp_error = $result;
-	    	return false;
-
-	    } else {
-	    	$this->ID = $result;
-
-	    	// We will go ahead and set the exists property to true, so that it is set when
-		    // the created event is fired, just in case the developer tries to update it
-		    // during the event. This will allow them to do so and run an update here.
-		    $this->exists = true;
-
-		    $this->wasRecentlyCreated = true;
-
-		    $this->fireModelEvent('created', false);
-
-		    return true;
-	    }
-
-	  } else {
-	  	// unknown error state
-	  	return false;
-	  }
-    
- 	}
-
- 	public function getWpError()
- 	{
- 		return $this->wp_error;
- 	}
+	
 
 	public function __construct($attributes = [])
 	{
@@ -233,7 +113,7 @@ abstract class CustomPostType extends Post {
 	public function newQuery($excludeDeleted = true)
 	{	
 		$builder = parent::newQuery($excludeDeleted);
-		if ('FatPanda\WordPress\Core\Models\CustomPostType' !== get_class($this)) {
+		if ('FatPanda\Illuminate\WordPress\PostType' !== get_class($this)) {
 			$builder->where('post_type', $this->post_type);
 		}
 		return $builder;
@@ -354,16 +234,11 @@ abstract class CustomPostType extends Post {
 		return $this->taxonomies;
 	}
 
-	static function register()
+	static function register(Plugin $plugin)
 	{
 		$instance = new static();
 
-		if ($instance->post_type === 'post_type') {
-			$class = get_class($instance);
-			throw new \Exception("Post type for {$class} has not been set; set protected property \$post_type to a valid and available post type");
-		}
-
-		register_post_type($instance->post_type, $instance->buildConfig());
+		register_post_type($instance->post_type, $instance->buildConfig($plugin));
 	}
 
 

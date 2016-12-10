@@ -1,5 +1,5 @@
 <?php 
-namespace FatPanda\Illuminate\WordPress\Models;
+namespace FatPanda\Illuminate\WordPress;
 
 use Illuminate\Database\Eloquent\Model as Eloquent;
 
@@ -22,6 +22,11 @@ class PostMeta extends Eloquent {
 	function getValueAttribute()
 	{
 		return maybe_unserialize($this->meta_value);
+	}
+
+	function meta()
+	{
+		return $this->belongsTo('FatPanda\Illuminate\WordPress\Post', 'post_id', 'ID');
 	}
 
 }

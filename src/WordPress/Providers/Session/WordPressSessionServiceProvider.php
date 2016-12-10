@@ -1,5 +1,5 @@
 <?php
-namespace FatPanda\Illuminate\WordPress\Session;
+namespace FatPanda\Illuminate\WordPress\Providers\Session;
 
 use Illuminate\Support\ServiceProvider;
 

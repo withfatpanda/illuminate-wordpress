@@ -1,5 +1,19 @@
 # CHANGELOG
 
+## v1.3.0
+
+* Fixed a number of previously undiscovered issues with the use of global function helpers inside of core Providers
+* Flushed some more dead code from early prototypes
+* Added Scout dependency and setup provider and aliases to be available to all Plugins
+* Refactored namespaces: core Models now packaged in `FatPanda\Illuminate\WordPress` instead of `FatPanda\Illuminate\WordPress\Models`
+* Renamed `CustomTaxonomy` to `Taxonomy`
+* Renamed `CustomPostType` to `PostType`
+* Created `CustomSchema` interface to unify registration of Taxonomy and PostType subclasses
+* Modified `Plugin::register` to accept both `ServiceProvider` classes as well as `CustomSchema` implementers
+* Added support for running Commands through Artisan Console via WP-CLI
+* Now using `plugin_basename($this->mainFile)` to generate default router namespace
+* Global `plugin($name)` function can be used to load any bootstrapped instance of a Bamboo Plugin
+
 ## v1.2.2
 
 * Fixed another angry namespacing issue

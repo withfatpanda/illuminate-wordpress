@@ -5,8 +5,9 @@ use Illuminate\Support\Str;
 use Illuminate\Support\Arr;
 use FatPanda\Illuminate\WordPress\Http\Router;
 use Illuminate\Container\Container;
-use FatPanda\Illuminate\WordPress\Models\CustomPostType;
-use FatPanda\Illuminate\WordPress\Models\CustomTaxonomy;
+use Illuminate\Support\Composer;
+use FatPanda\Illuminate\WordPress\PostType;
+use FatPanda\Illuminate\WordPress\Taxonomy;
 use Illuminate\Support\ServiceProvider;
 use Illuminate\Config\Repository as ConfigRepository;
 use Illuminate\Filesystem\Filesystem;
@@ -22,6 +23,8 @@ use Illuminate\Session\CookieSessionHandler;
 abstract class Plugin extends Container {
 
   protected static $plugins;
+
+  protected $commands;
 
   protected $mainFile;
 
@@ -41,7 +44,10 @@ abstract class Plugin extends Container {
 
   protected $pluginData;
 
-  protected $registeredDataTypes = [];
+  /**
+   * @var array
+   */
+  protected $customSchema = [];
 
   protected $routerNamespace;
 
@@ -78,6 +84,8 @@ abstract class Plugin extends Container {
     'request' => 'registerRequestBindings',
     'Illuminate\Http\Request' => 'registerRequestBindings',
     'encrypter' => 'registerEncrypterBindings',
+    'composer' => 'registerComposerBindings',
+    
 
     // 'auth' => 'registerAuthBindings',
     // 'auth.driver' => 'registerAuthBindings',
@@ -90,7 +98,6 @@ abstract class Plugin extends Container {
     // 'cache.store' => 'registerCacheBindings',
     // 'Illuminate\Contracts\Cache\Factory' => 'registerCacheBindings',
     // 'Illuminate\Contracts\Cache\Repository' => 'registerCacheBindings',
-    // 'composer' => 'registerComposerBindings',
     // 'Illuminate\Contracts\Encryption\Encrypter' => 'registerEncrypterBindings',
     // 'Illuminate\Contracts\Events\Dispatcher' => 'registerEventBindings',
     // 'hash' => 'registerHashBindings',
@@ -137,16 +144,27 @@ abstract class Plugin extends Container {
 
   /** 
    * Get the existing instance of this Plugin.
+   * @param string Optionally, the name or classname of the Plugin to retrieve
    * @return Plugin instance
    * @throws Exception If the plugin has not been bootstrapped yet.
    */
-  static function getInstance()
+  static function getInstance($name = null)
   {
-    $class = get_called_class();
-    if (empty(static::$instance[$class])) {
-      throw new \Exception("Can't load instance; Plugin has not been bootstrapped yet.");
+    if (empty($name)) {
+      $name = get_called_class();
     }
-    return static::$instance[$class];
+    if (empty(static::$instance[$name])) {
+      throw new \Exception("Can't load {$name} Plugin instance; it has not been bootstrapped yet.");
+    }
+    return static::$instance[$name];
+  }
+
+  /**
+   * @return array
+   */
+  public function getCommands()
+  {
+    return $this->commands;
   }
 
   /**
@@ -198,6 +216,75 @@ abstract class Plugin extends Container {
   }
 
   /**
+   * Prepare the application to execute a console command.
+   *
+   * @param  bool  $aliases
+   * @return void
+   */
+  public function prepareForConsoleCommand($aliases = true)
+  {
+    // $this->make('cache');
+    // $this->make('queue');
+
+    $this->configure('database');
+
+    $this->register('Illuminate\Database\MigrationServiceProvider');
+    $this->register('Illuminate\Database\SeedServiceProvider');
+    $this->register('Illuminate\Queue\ConsoleServiceProvider');
+  }
+
+  /**
+   * Get the version number of the application.
+   *
+   * @return string
+   */
+  public function version()
+  {
+      return $this->name . ' (' . $this->version . ')';
+  }
+
+  /**
+   * Register container bindings for the application.
+   *
+   * @return void
+   */
+  protected function registerComposerBindings()
+  {
+      $this->singleton('composer', function ($app) {
+          return new Composer($app->make('files'), $this->basePath());
+      });
+  }
+
+  /**
+   * Get or check the current application environment.
+   *
+   * @param  mixed
+   * @return string
+   */
+  public function environment()
+  {
+    $env = getenv('APP_ENV');
+
+    if (empty($env)) {
+      $env = getenv('WP_ENV') ?: 'development';
+    }
+    
+    if (func_num_args() > 0) {
+        $patterns = is_array(func_get_arg(0)) ? func_get_arg(0) : func_get_args();
+
+        foreach ($patterns as $pattern) {
+            if (Str::is($pattern, $env)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    return $env;
+  }
+
+  /**
    * Register container bindings for the plugin.
    *
    * @return void
@@ -208,7 +295,7 @@ abstract class Plugin extends Container {
       return $this->loadComponent(
         'database', [
           'Illuminate\Database\DatabaseServiceProvider',
-          'Illuminate\Pagination\PaginationServiceProvider',
+          'FatPanda\Illuminate\WordPress\Providers\Pagination\PaginationServiceProvider',
         ], 'db'
       );
     });
@@ -317,6 +404,8 @@ abstract class Plugin extends Container {
     $fs = new Filesystem;
 
     $pluginSrcFile = $basepath.'/src/plugin.php';
+
+    require_once $pluginSrcFile;
     
     $source = $fs->get($pluginSrcFile);
     
@@ -376,16 +465,20 @@ abstract class Plugin extends Container {
    */
   protected function bootstrapContainer()
   {
-    $this->instance('app', $this);
-    $this->instance('path', $this->path());
+    $this->instance( 'app', $this );
+    $this->instance( 'path', $this->path() );
+
     $this->registerContainerAliases();
     $this->bindActionsAndFilters();
 
-    $this->configure('services');
-    $this->configure('session');
     $this->register( \Illuminate\Session\SessionServiceProvider::class );
-    $this->register( \FatPanda\Illuminate\WordPress\Session\WordPressSessionServiceProvider::class );
-    
+    $this->register( \FatPanda\Illuminate\WordPress\Providers\Session\WordPressSessionServiceProvider::class );
+    $this->singleton( \Illuminate\Contracts\Console\Kernel::class, \FatPanda\Illuminate\WordPress\Console\Kernel::class ); 
+    $this->register( \FatPanda\Illuminate\WordPress\Providers\Scout\ScoutServiceProvider::class );
+
+    $this->configure( 'scout' );
+    $this->configure( 'services' );
+    $this->configure( 'session' );
   }
 
   /**
@@ -429,6 +522,16 @@ abstract class Plugin extends Container {
     }
 
     return $this->basePath($path);
+  }
+
+  /**
+   * Get the database path for the application.
+   *
+   * @return string
+   */
+  public function databasePath()
+  {
+    return $this->basePath().'/database';
   }
 
   /**
@@ -482,26 +585,29 @@ abstract class Plugin extends Container {
   protected function registerContainerAliases()
   {
     $this->aliases = [
-    'Illuminate\Contracts\Auth\Factory' => 'auth',
-    'Illuminate\Contracts\Auth\Guard' => 'auth.driver',
-    'Illuminate\Contracts\Cache\Factory' => 'cache',
-    'Illuminate\Contracts\Cache\Repository' => 'cache.store',
-    'Illuminate\Contracts\Config\Repository' => 'config',
-    'Illuminate\Container\Container' => 'app',
-    'Illuminate\Contracts\Container\Container' => 'app',
-    'Illuminate\Database\ConnectionResolverInterface' => 'db',
-    'Illuminate\Database\DatabaseManager' => 'db',
-    'Illuminate\Contracts\Encryption\Encrypter' => 'encrypter',
-    'Illuminate\Contracts\Events\Dispatcher' => 'events',
-    'Illuminate\Contracts\Hashing\Hasher' => 'hash',
-    'log' => 'Psr\Log\LoggerInterface',
-    'Illuminate\Contracts\Queue\Factory' => 'queue',
-    'Illuminate\Contracts\Queue\Queue' => 'queue.connection',
-    'request' => 'Illuminate\Http\Request',
-    'Laravel\Lumen\Routing\UrlGenerator' => 'url',
-    'Illuminate\Contracts\Validation\Factory' => 'validator',
-    'Illuminate\Contracts\View\Factory' => 'view',
-    'FatPanda\Illuminate\WordPress\Http\Router' => 'router',
+      'Illuminate\Contracts\Auth\Factory' => 'auth',
+      'Illuminate\Contracts\Auth\Guard' => 'auth.driver',
+      'Illuminate\Contracts\Cache\Factory' => 'cache',
+      'Illuminate\Contracts\Cache\Repository' => 'cache.store',
+      'Illuminate\Contracts\Config\Repository' => 'config',
+      'Illuminate\Container\Container' => 'app',
+      'Illuminate\Contracts\Container\Container' => 'app',
+      'Illuminate\Database\ConnectionResolverInterface' => 'db',
+      'Illuminate\Database\DatabaseManager' => 'db',
+      'Illuminate\Contracts\Encryption\Encrypter' => 'encrypter',
+      'Illuminate\Contracts\Events\Dispatcher' => 'events',
+      'Illuminate\Contracts\Hashing\Hasher' => 'hash',
+      'log' => 'Psr\Log\LoggerInterface',
+      'Illuminate\Contracts\Queue\Factory' => 'queue',
+      'Illuminate\Contracts\Queue\Queue' => 'queue.connection',
+      'request' => 'Illuminate\Http\Request',
+      'Laravel\Lumen\Routing\UrlGenerator' => 'url',
+      'Illuminate\Contracts\Validation\Factory' => 'validator',
+      'Illuminate\Contracts\View\Factory' => 'view',
+      'FatPanda\Illuminate\WordPress\Http\Router' => 'router',
+      'Illuminate\Contracts\Console\Kernel' => 'artisan',
+      'artisan' => 'Illuminate\Contracts\Console\Kernel',
+      'Laravel\Scout\Contracts\Factory' => 'scout',
     ];
   }
 
@@ -644,15 +750,22 @@ abstract class Plugin extends Container {
   }
 
   /**
-   * Register a service provider with the plugin.
-   *
-   * @param  \Illuminate\Support\ServiceProvider|string  $provider
+   * Register a service provider or a CustomSchema with the plugin.
+   * @param  mixed  $provider
    * @param  array  $options
    * @param  bool   $force
-   * @return \Illuminate\Support\ServiceProvider
+   * @return \Illuminate\Support\ServiceProvider or null
    */
   public function register($provider, $options = [], $force = false)
   {
+    if (is_string($provider)) {
+      $implements = class_implements($provider);
+      if (isset($implements['FatPanda\Illuminate\WordPress\CustomSchema'])) {
+        $this->customSchema[] = $provider;
+        return;
+      }
+    } 
+
     if (!$provider instanceof ServiceProvider) {
       $provider = new $provider($this);
     }
@@ -708,7 +821,38 @@ abstract class Plugin extends Container {
    */
   final function finalOnInit()
   {
-    $this->registerCustomDataTypes();   
+    $this->registerCustomSchema(); 
+    $this->registerArtisanCommand();  
+  }
+
+  /**
+   * Create a WP-CLI command for running Artisan.
+   */
+  protected function registerArtisanCommand()
+  {
+    if (!class_exists('WP_CLI')) {
+      return false;
+    }
+      
+    /**
+     * Run Laravel Artisan for this plugin
+     */
+    \WP_CLI::add_command($this->getCLICommandName(), function($args) {
+      
+      $this->artisan->call(array_shift($args), array_reduce($args, function($result, $arg) {
+        @list($name, $value) = explode('=', $arg);
+        $result[$name] = $value ? $value : 1;
+        return $result;
+      }, []));
+
+      \WP_CLI::log($this->artisan->output());
+
+    });
+  }
+
+  protected function getCLICommandName()
+  {
+    return basename(dirname($this->mainFile));
   }
 
   protected function bindActivationAndDeactivationHooks()
@@ -723,13 +867,13 @@ abstract class Plugin extends Container {
     flush_rewrite_rules();
   }
 
-  protected function registerCustomDataTypes()
+  protected function registerCustomSchema()
   {
-    if (!empty($this->registeredDataTypes)) {
+    if (!empty($this->customSchema)) {
       $this->withEloquent();
 
-      foreach($this->registeredDataTypes as $class) {
-        call_user_func($class . '::register');
+      foreach($this->customSchema as $class) {
+        call_user_func_array($class . '::register', [ $this ]);
       }
     }
   }
@@ -742,7 +886,7 @@ abstract class Plugin extends Container {
   protected function bootRouter()
   {
     if (empty($this->routerNamespace)) {
-      $this->setRouterNamespace( Str::slug($this->name) );
+      $this->setRouterNamespace( dirname(plugin_basename($this->mainFile)) );
     }
 
     if (empty($this->routerVersion)) {
@@ -764,9 +908,19 @@ abstract class Plugin extends Container {
     require $this->path() . '/src/routes.php';
   }
 
-  function getPluginData()
+  /**
+   * Get the metadata from this Plugin's bootstrap file;
+   * @param string Optionally, only return the value for a specific field
+   * @param mixed If $field is requested by not found in metadata, return $default instead
+   * @return mixed
+   */
+  function getPluginData($field = false, $default = null)
   {
-    return $this->pluginData;
+    if ($field) {
+      return !empty($this->pluginData[$field]) ? $this->pluginData[$field] : $default;
+    } else {
+      return $this->pluginData;
+    }
   }
 
   function setRouterNamespace($namespace)
@@ -784,16 +938,6 @@ abstract class Plugin extends Container {
   abstract function onActivate();
 
   abstract function onDeactivate();
-
-  function registerCustomPostType($class)
-  {
-    $this->registeredDataTypes[(string) $class] = $class;
-  }
-
-  function registerCustomTaxonomy($class)
-  {
-    $this->registeredDataTypes[(string) $class] = $class;
-  }
 
   function unregister($class)
   {

@@ -1,6 +1,7 @@
 <?php 
-namespace FatPanda\Illuminate\WordPress\Models;
+namespace FatPanda\Illuminate\WordPress;
 
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model as Eloquent;
 use Illuminate\Support\Collection;
 
@@ -11,6 +12,34 @@ class Post extends Eloquent {
 	protected $primaryKey = 'ID';
 
 	protected $fillable = ['id'];
+
+	protected $wp_error = null;
+
+	protected $postAttributes = [
+		'ID',
+		'id',
+		'post_author',
+		'post_date',
+		'post_date_gmt',
+		'post_content',
+		'post_content_filtered',
+		'post_title',
+		'post_excerpt',
+		'post_status',
+		'post_type',
+		'comment_status',
+		'ping_status',
+		'post_password',
+		'post_name',
+		'to_ping',
+		'pinged',
+		'post_modified',
+		'post_modified_gmt',
+		'post_parent',
+		'menu_order',
+		'post_mime_type',
+		'guid'
+	];
 
 	function getIdAttribute()
 	{
@@ -24,311 +53,174 @@ class Post extends Eloquent {
 
 	function getTitleAttribute()
 	{
-		return (object) [ 'rendered' => apply_filters('the_title', $this->post_title) ];
+		return (object) [ 
+			'content' => $this->post_title,
+			'rendered' => apply_filters('the_title', $this->post_title) 
+		];
 	}
 
+	/**
+   * Perform a model update operation.
+   *
+   * @param  \Illuminate\Database\Eloquent\Builder  $query
+   * @param  array  $options
+   * @return bool
+   */
+  protected function performUpdate(Builder $query, array $options = [])
+  {
+    $dirty = $this->getDirty();
+
+    if (count($dirty) > 0) {
+      // If the updating event returns false, we will cancel the update operation so
+      // developers can hook Validation systems into their models and cancel this
+      // operation if the model does not pass validation. Otherwise, we update.
+      if ($this->fireModelEvent('updating') === false) {
+        return false;
+      }
+
+      $attributes = $this->attributes;
+      unset($attributes['wp_error']);
+
+      $result = wp_update_post($attributes, array_key_exists('wp_error', $options) ? (bool) $options['wp_error'] : null);
+
+	    if ($result) {
+
+		    if (is_wp_error($result)) {
+		    	$this->wp_error = $result;
+		    	return false;
+		    } else {
+		    	$this->fireModelEvent('updated', false);
+		    }
+
+		  } else {
+		  	// unknown error state
+		  	return false;
+		  }
+
+
+    }
+
+    return true;
+  }
+
+  /**
+   * Perform a model insert operation.
+   *
+   * @param  \Illuminate\Database\Eloquent\Builder  $query
+   * @param  array  $options
+   * @return bool
+   */
+  protected function performInsert(Builder $query, array $options = [])
+  {
+  	// clear out last error
+    $this->wp_error = null;
+
+    // fire normal Eloquent event
+    if ($this->fireModelEvent('creating') === false) {
+        return false;
+    }
+
+    $attributes = $this->attributes;
+
+    unset($attributes['wp_error']);
+
+    $result = wp_insert_post($attributes, array_key_exists('wp_error', $options) ? (bool) $options['wp_error'] : null);
+
+    if ($result) {
+
+	    if (is_wp_error($result)) {
+	    	$this->wp_error = $result;
+	    	return false;
+
+	    } else {
+	    	$this->ID = $result;
+
+	    	// We will go ahead and set the exists property to true, so that it is set when
+		    // the created event is fired, just in case the developer tries to update it
+		    // during the event. This will allow them to do so and run an update here.
+		    $this->exists = true;
+
+		    $this->wasRecentlyCreated = true;
+
+		    $this->fireModelEvent('created', false);
+
+		    return true;
+	    }
+
+	  } else {
+	  	// unknown error state
+	  	return false;
+	  }
+    
+ 	}
+
+ 	public function getWpError()
+ 	{
+ 		return $this->wp_error;
+ 	}
+
+	function setTitleAttribute($value)
+	{
+		$this->attributes['post_title'] = $value;
+	}
+
+	function getContentAttribute()
+	{
+		return (object) [
+			'rendered' => apply_filters('the_content', $this->post_content),
+			'protected' => $this->post_status === 'private'
+		];
+	}
+
+	function setContentAttribute($value)
+	{
+		$this->attributes['post_content'] = $value;
+	}
+
+	function getGuidAttribute()
+	{
+		return (object) [
+			'rendered' => site_url('?'.esc_attr(http_build_query(['p' => $this->id, 'post_type' => $this->post_type])))
+		];
+	}
+
+	function getExcerptAttribute()
+	{
+		return (object) [
+			'rendered' => get_the_excerpt($this->id),
+			'protected' => $this->post_status === 'private'
+		];
+	}
+
+	function setExcerptAttribute($value)
+	{
+		$this->attributes['post_excerpt'] = $value;
+	}
+
+	/**
+	 * @return Builder
+	 */
 	static function getPostByIdOrName($value)
 	{
 		if ($value instanceof static) {
 			return $value;
 		}
-
-		return static::whereRaw('ID = ? OR post_name = ?', [ $value, $value ])
-			->firstOrFail();
+		return static::whereRaw('ID = ? OR post_name = ?', [ $value, $value ]);
 	}
 
-	static function countVotes($post_id)
+	function reactions()
 	{
-		$post = static::getPostByIdOrName($post_id);
 
-		return \Cache::tags(['posts', 'post-votes'])->rememberForever("counts-{$post->id}", function() use ($post) {
-		
-			$tallies = \DB::table('posts_votes')
-				->selectRaw('count(*) as vote_count, vote')
-				->where('post_id', $post->id)
-				->groupBy('vote')
-				->get();
-
-			$results = [
-				'votes' => [
-					'-1' => 0,
-					'0' => 0,
-					'1' => 0
-				]
-			];
-
-			foreach($tallies as $tally) {
-				$results['votes'][$tally->vote] = $tally->vote_count;
-			}
-
-			$results['score'] = (-1 * $results['votes']['-1']) + $results['votes']['1'];
-
-			return $results;
-
-		});
-	}
-
-	static function getVote($post_id, User $user = null)
-	{
-		$post = static::getPostByIdOrName($post_id);
-		
-		if (empty($user)) {
-			if (!$user = User::current()) {
-				return false;
-			}
-		}
-
-		return \Cache::tags(['posts', 'post-votes'])->rememberForever("get-{$post->id}", function() use ($post, $user) {
-		
-			$vote = \DB::table('posts_votes')
-				->where([
-					'post_id' => $post->id, 
-					'user_id' => $user->id
-				])
-				->first();
-
-			if (!$vote) {
-				$vote = (object) [
-					'id' => null,
-					'vote' => false,
-					'post_id' => $post->id,
-					'user_id' => (int) $user->id,
-					'created_at' => false,
-					'updated_at' => false
-				];
-			}
-
-			$vote->global = static::countVotes($post);
-
-			return $vote;
-
-		});
-	}
-
-	static function setVote($post_id, $vote, User $user = null)
-	{
-		$post = static::getPostByIdOrName($post_id);
-		if (empty($user)) {
-			if (!$user = User::current()) {
-				return false;
-			}
-		}
-		return \DB::transaction(function() use ($post, $vote, $user) {
-			static::deleteVote($post->id, $user);
-			
-			$now = \Carbon\Carbon::now();
-
-			$vote = (int) $vote;
-
-			if ($vote !== -1 && $vote !== 0 && $vote !== 1) {
-				throw new \Exception("Invalid vote value: must be one of -1, 0, or 1");
-			}
-
-			\DB::table('posts_votes')->insert([
-				'post_id' => $post->id,
-				'user_id' => $user->id,
-				'vote' => $vote,
-				'created_at' => $now,
-				'updated_at' => $now,
-			]);
-
-			\Cache::tags(['posts', 'post-votes'])->forget("get-{$post->id}");
-			\Cache::tags(['posts', 'post-votes'])->forget("counts-{$post->id}");
-
-			return static::getVote($post->id, $user);
-		});
-	}
-
-	static function deleteVote($post_id, User $user = null) {
-		$post = static::getPostByIdOrName($post_id);
-		
-		if (empty($user)) {
-			if (!$user = User::current()) {
-				return false;
-			}
-		}
-
-		$result = \DB::table('posts_votes')->where([
-			'post_id' => $post->id,
-			'user_id' => $user->id
-		])->limit(1)->delete();
-
-		\Cache::tags(['posts', 'post-votes'])->forget("get-{$post->id}");
-		\Cache::tags(['posts', 'post-votes'])->forget("counts-{$post->id}");
-
-		return $result;
-	}
-
-	static function getRating($post_id, User $user = null) 
-	{
-		$post = static::getPostByIdOrName($post_id);
-		if (empty($user)) {
-			if (!$user = User::current()) {
-				return false;
-			}
-		}
-		return \DB::table('posts_ratings')
-			->where([
-				'post_id' => $post->id, 
-				'user_id' => $user->id
-			])
-			->first();
-	}
-
-	static function setRating($post_id, $rating, User $user = null)
-	{
-		$post = static::getPostByIdOrName($post_id);
-		if (empty($user)) {
-			if (!$user = User::current()) {
-				return false;
-			}
-		}
-		return \DB::transaction(function() use ($post, $rating, $user) {
-			static::deleteRating($post->id, $user);
-			
-			$now = \Carbon\Carbon::now();
-			
-			\DB::table('posts_ratings')->insert([
-				'post_id' => $post->id,
-				'user_id' => $user->id,
-				'rating' => (int) $rating,
-				'created_at' => $now,
-				'updated_at' => $now,
-			]);
-
-			return static::getRating($post->id, $user);
-		});
-	}
-
-	static function deleteRating($post_id, User $user = null) {
-		$post = static::getPostByIdOrName($post_id);
-		if (empty($user)) {
-			if (!$user = User::current()) {
-				return false;
-			}
-		}
-		return \DB::table('posts_ratings')->where([
-			'post_id' => $post->id,
-			'user_id' => $user->id
-		])->limit(1)->delete();
 	}
 	
-	static function isRead($post_id, User $user = null) 
+	function meta()
 	{
-		$post = static::getPostByIdOrName($post_id);
-		if (empty($user)) {
-			if (!$user = User::current()) {
-				return false;
-			}
-		}
-		return \DB::table('posts_read')
-			->where(['post_id' => $post->id, 'user_id' => $user->id])
-			->first();
+		return $this->hasMany('FatPanda\Illuminate\WordPress\PostMeta');
 	}
 
-	static function areRead($post_ids = [], User $user = null) 
+	function comments()
 	{
-		if (!is_array($post_ids)) {
-			throw new \Exception("Post IDs arguments must be an array");
-		}
-		if (empty($user)) {
-			if (!$user = User::current()) {
-				return false;
-			}
-		}
-		return \DB::table('posts_read')
-			->whereIn('post_id', $post_ids)
-			->where('user_id', $user->id)
-			->count() === count($post_ids);
-	}
-
-	static function lastRead($post_type = 'post', $limit = 10, User $user = null)
-	{
-		$posts = [];
-
-		if (empty($user)) {
-			if (!$user = User::current()) {
-				return false;
-			}
-		}
-
-		$builder = \DB::table('posts_read')
-			->select('posts.*', 'posts_read.updated_at AS last_read_at')
-			->join('posts', 'posts_read.post_id', '=', 'posts.ID')
-			->where('user_id', $user->id)
-			->whereIn('post_type', is_array($post_type) ? $post_type : preg_split('/,\s*/', $post_type))
-			->orderBy('posts_read.updated_at', 'desc');
-					
-		if ($limit > -1) {
-			$builder->limit($limit);
-		}
-
-		$read = $builder->get();
-
-		foreach($read as $post) {
-			$posts[] = [
-				'ID' => $post->ID,
-				'type' => $post->post_type,
-				'slug' => $post->post_name,
-				'title' => [
-					'rendered' => apply_filters('the_title', $post->post_title, $post)
-				],
-				'excerpt' => [
-					'rendered' => @get_the_excerpt($post)
-				],
-				'last_read_at' => \Carbon\Carbon::parse($post->last_read_at)->format('c')
-			];
-		}
-
-		return $posts;
-	}
-
-	function markAsRead(User $user = null)
-	{
-		if (empty($user)) {
-			if (!$user = User::current()) {
-				return false;
-			}
-		}
-
-		$read = [ 'user_id' => $user->id, 'post_id' => $this->id];
-
-		try {
-			\DB::table('posts_read')->insert(array_merge($read, ['created_at' => \Carbon\Carbon::now()]));
-		} catch (\Exception $e) {
-
-		} finally {
-			\DB::table('posts_read')->where($read)->update([ 'updated_at' => \Carbon\Carbon::now() ]);
-		}
-
-		return \DB::table('posts_read')->where($read)->first();
-	}
-
-	function meta($name = null)
-  {
-      return new Collection(get_post_meta($this->id, $name));
-  }
-
-  function updateMeta($name, $value) {
-      return update_post_meta($this->id, $name, $value);
-  }
-
-  function addMeta($name, $value) {
-      return add_post_meta($this->id, $name, $value);
-  }
-
-
-	function markAsUnread(User $user = null)
-	{
-		if (empty($user)) {
-			if (!$user = User::current()) {
-				return false;
-			}
-		}
-
-		$read = [ 'user_id' => $user->id, 'post_id' => $this->id];
-
-		return \DB::table('posts_read')->where($read)->limit(1)->delete();
+		return $this->hasMany('FatPanda\Illuminate\WordPress\Comment', 'ID', 'comment_post_ID');
 	}
 
 	function toArray()
@@ -337,28 +229,20 @@ class Post extends Eloquent {
 			'id' => $this->id,
 			'date' => \Carbon\Carbon::parse($this->post_date)->format('c'),
 			'date_gmt' => \Carbon\Carbon::parse($this->post_date_gmt)->format('c'),
-			'guid' => [
-				'rendered' => site_url('?'.esc_attr(http_build_query(['p' => $this->id, 'post_type' => $this->post_type])))
-			],
+			'guid' => $this->guid,
 			'modified' => \Carbon\Carbon::parse($this->post_modified)->format('c'),
 			'modified_gmt' => \Carbon\Carbon::parse($this->post_modified_gmt)->format('c'),
 			'slug' => $this->post_name,
 			'type' => $this->post_type,
 			'link' => get_the_permalink($this->id),
 			'title' => $this->title,
-			'content' => [
-				'rendered' => apply_filters('the_content', $this->post_content),
-				'protected' => $this->post_status === 'private'
-			],
-			'excerpt' => [
-				'rendered' => get_the_excerpt($this->id),
-				'protected' => $this->post_status === 'private'
-			],
+			'content' => $this->content,
+			'excerpt' => $this->excerpt,
 			'author' => $this->post_author,
 			'parent' => $this->post_parent,
 		];
 
-		// TODO: featured_meda, parent, menu_order, categories, tags
+		// TODO: featured_media, parent, menu_order, categories, tags
 
 		if (function_exists('get_fields')) {
 			$array['fields'] = get_fields($this->id);
