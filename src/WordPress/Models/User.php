@@ -1,5 +1,5 @@
 <?php
-namespace FatPanda\Illuminate\WordPress;
+namespace FatPanda\Illuminate\WordPress\Models;
 
 use Illuminate\Auth\Authenticatable;
 use Laravel\Lumen\Auth\Authorizable;

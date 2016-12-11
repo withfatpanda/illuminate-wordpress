@@ -461,6 +461,61 @@ abstract class Plugin extends Container {
   }
 
   /**
+   * Try to load the database configuration from the environment first
+   * using getenv; finding none, look to the traditional constants typically
+   * defined in wp-config.php
+   * @return array
+   */
+  protected function getDefaultDatabaseConnectionConfig()
+  {
+    global $table_prefix;
+
+    $default = [
+      'driver'    => 'mysql',
+      'host'      => getenv('DB_HOST'),
+      'port'      => getenv('DB_PORT'),
+      'database'  => getenv('DB_NAME'),
+      'username'  => getenv('DB_USER'),
+      'password'  => getenv('DB_PASSWORD'),
+      'charset'   => getenv('DB_CHARSET'),
+      'collation' => getenv('DB_COLLATE'),
+      'prefix'    => getenv('DB_PREFIX') ?: $table_prefix,
+      'timezone'  => getenv('DB_TIMEZONE') ?: '+00:00',
+      'strict'    => getenv('DB_STRICT_MODE') ?: false,
+    ];
+
+    if (empty($default['database']) && defined('DB_NAME')) {
+      $default['database'] = DB_NAME;
+    }
+
+    if (empty($default['username']) && defined('DB_USER')) {
+      $default['username'] = DB_USER;
+    }
+
+    if (empty($default['password']) && defined('DB_PASSWORD')) {
+      $default['password'] = DB_PASSWORD;
+    }
+
+    if (empty($default['host']) && defined('DB_HOST')) {
+      $default['host'] = DB_HOST;
+    }
+
+    if (empty($default['charset']) && defined('DB_CHARSET')) {
+      $default['charset'] = DB_CHARSET;
+    }
+
+    if (empty($default['collation'])) {
+      if (defined('DB_COLLATE') && DB_COLLATE) {
+        $default['collation'] = DB_COLLATE;
+      } else {
+        $default['collation'] = 'utf8_unicode_ci';
+      }
+    }
+
+    return $default;
+  } 
+
+  /**
    * Bootstrap the plugin container.
    *
    * @return void
@@ -477,6 +532,10 @@ abstract class Plugin extends Container {
     $this->register( \FatPanda\Illuminate\WordPress\Providers\Session\WordPressSessionServiceProvider::class );
     $this->singleton( \Illuminate\Contracts\Console\Kernel::class, \FatPanda\Illuminate\WordPress\Console\Kernel::class ); 
     $this->register( \FatPanda\Illuminate\WordPress\Providers\Scout\ScoutServiceProvider::class );
+
+    $this->singleton( \Illuminate\Contracts\Debug\ExceptionHandler::class, function() {
+      return new \FatPanda\Illuminate\Support\Exceptions\Handler($this);
+    });
 
     $this->configure( 'scout' );
     $this->configure( 'services' );

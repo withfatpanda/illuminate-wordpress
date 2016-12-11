@@ -1,5 +1,5 @@
 <?php
-namespace FatPanda\Illuminate\WordPress;
+namespace FatPanda\Illuminate\WordPress\Models;
 
 abstract class Taxonomy implements CustomSchema {
 

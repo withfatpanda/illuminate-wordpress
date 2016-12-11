@@ -5,7 +5,6 @@
 * Fixed a number of previously undiscovered issues with the use of global function helpers inside of core Providers
 * Flushed some more dead code from early prototypes
 * Added Scout dependency and setup provider and aliases to be available to all Plugins
-* Refactored namespaces: core Models now packaged in `FatPanda\Illuminate\WordPress` instead of `FatPanda\Illuminate\WordPress\Models`
 * Renamed `CustomTaxonomy` to `Taxonomy`
 * Renamed `CustomPostType` to `PostType`
 * Created `CustomSchema` interface to unify registration of Taxonomy and PostType subclasses
@@ -15,6 +14,7 @@
 * Global `plugin($name)` function can be used to load any bootstrapped instance of a Bamboo Plugin
 * Setup unit testing and Travis-CI to guarantee future build stability
 * Added `FatPanda\Illuminate\WordPress\TestCase` class to ease some plugin unit testing tasks, e.g., REST API endpoint testing
+* Setup default Exception Handler: `FatPanda\Illuminate\Support\Exceptions\Handler`; still needs some work, e.g., detecting type of request and reporting the error accordingly
 
 ## v1.2.2
 

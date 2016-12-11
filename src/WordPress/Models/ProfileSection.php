@@ -1,5 +1,5 @@
 <?php
-namespace FatPanda\Illuminate\WordPress;
+namespace FatPanda\Illuminate\WordPress\Models;
 
 use Illuminate\Database\Eloquent\Model as Eloquent;
 use Illuminate\Support\Facades\Validator;
@@ -11,7 +11,7 @@ class ProfileSection extends Eloquent implements ProfileSectionContract {
 
 	function user()
 	{
-		return $this->belongsTo('FatPanda\Illuminate\WordPress\User', 'user_id', 'ID');
+		return $this->belongsTo('FatPanda\Illuminate\WordPress\Models\User', 'user_id', 'ID');
 	}
 
 	function saveToProfile($data)
@@ -114,7 +114,7 @@ class ProfileSection extends Eloquent implements ProfileSectionContract {
 
 		if (class_exists($type)) {
 			$implements = class_implements($type);
-			if (!isset($implements['FatPanda\Illuminate\WordPress\ProfileSectionContract'])) {
+			if (!isset($implements['FatPanda\Illuminate\WordPress\Models\ProfileSectionContract'])) {
 				throw new \Exception("Profile Section type {$type} does not implement ProfileSectionContract");
 			}
 			return new $type;

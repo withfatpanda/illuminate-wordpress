@@ -7,12 +7,18 @@ use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Symfony\Component\HttpKernel\Exception\HttpException;
 use Laravel\Lumen\Exceptions\Handler as ExceptionHandler;
+use Illuminate\Container\Container;
 
 /**
  * Renders Exceptions as JSON
  */
-class Handler extends ExceptionHandler
+class Handler extends LumenHandler
 {
+    /**
+     * A reference to the Plugin that utilizes this handler.
+     */
+    protected $plugin;
+
     /**
      * A list of the exception types that should not be reported.
      *
@@ -25,6 +31,11 @@ class Handler extends ExceptionHandler
         CoreValidationException::class,
     ];
 
+    public function __construct(Container $plugin)
+    {
+        $this->plugin = $plugin;
+    }
+
     /**
      * Report or log an exception.
      *
@@ -35,7 +46,17 @@ class Handler extends ExceptionHandler
      */
     public function report(Exception $e)
     {
-        parent::report($e);
+        if ($this->shouldntReport($e)) {
+            return;
+        }
+
+        try {
+            $logger = $this->plugin->make('Psr\Log\LoggerInterface');
+        } catch (Exception $ex) {
+            throw $e; // throw the original exception
+        }
+
+        $logger->error($e);
     }
 
     static function buildResponseData(Exception $e)
@@ -72,13 +93,7 @@ class Handler extends ExceptionHandler
 
     static public function isDebugMode()
     {
-        if (function_exists('config')) {
-            return config('app.debug');
-        } else if (current_user_can('administrator')) {
-            return true;
-        } else {
-            return constant('WP_DEBUG') && WP_DEBUG;
-        }
+        return ( defined('WP_DEBUG') && WP_DEBUG ) || $this->plugin->config('app.debug') || current_user_can('administrator');
     }
 
     /**
@@ -90,7 +105,8 @@ class Handler extends ExceptionHandler
      */
     public function render($request, Exception $e)
     {
+        // TODO: use constant REST_REQUEST to detect a REST_REQUEST and respond accordingly
         $response = static::buildResponseData($e);
-        return response()->json($response, $response['data']['status']);
+        return $this->plugin->response->json($response, $response['data']['status']);
     }
 }

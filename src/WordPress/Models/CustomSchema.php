@@ -1,5 +1,5 @@
 <?php
-namespace FatPanda\Illuminate\WordPress;
+namespace FatPanda\Illuminate\WordPress\Models;
 
 /**
  * WordPress has two types of custom schema: PostTypes and Taxonomies.

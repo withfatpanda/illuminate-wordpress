@@ -1,6 +1,9 @@
 <?php
 namespace FatPanda\Illuminate\WordPress\Providers\Database;
 
+use Faker\Factory as FakerFactory;
+use Faker\Generator as FakerGenerator;
+
 class DatabaseServiceProvider extends Illuminate\Database\DatabaseServiceProvider {
 
 	/**

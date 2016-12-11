@@ -1,9 +1,10 @@
 <?php 
-namespace FatPanda\Illuminate\WordPress;
+namespace FatPanda\Illuminate\WordPress\Models;
 
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model as Eloquent;
 use Illuminate\Support\Collection;
+use Carbon\Carbon;
 
 class Post extends Eloquent {
 
@@ -11,9 +12,7 @@ class Post extends Eloquent {
 
 	protected $primaryKey = 'ID';
 
-	protected $fillable = ['id'];
-
-	protected $wp_error = null;
+	protected $fillable = [ 'id' ];
 
 	protected $postAttributes = [
 		'ID',
@@ -41,6 +40,11 @@ class Post extends Eloquent {
 		'guid'
 	];
 
+	static function boot()
+	{
+		// TODO: setup events for integrating CRUD operation back into WordPress
+	}
+
 	function getIdAttribute()
 	{
 		return !empty($this->attributes['ID']) ? $this->attributes['ID'] : null;
@@ -58,106 +62,6 @@ class Post extends Eloquent {
 			'rendered' => apply_filters('the_title', $this->post_title) 
 		];
 	}
-
-	/**
-   * Perform a model update operation.
-   *
-   * @param  \Illuminate\Database\Eloquent\Builder  $query
-   * @param  array  $options
-   * @return bool
-   */
-  protected function performUpdate(Builder $query, array $options = [])
-  {
-    $dirty = $this->getDirty();
-
-    if (count($dirty) > 0) {
-      // If the updating event returns false, we will cancel the update operation so
-      // developers can hook Validation systems into their models and cancel this
-      // operation if the model does not pass validation. Otherwise, we update.
-      if ($this->fireModelEvent('updating') === false) {
-        return false;
-      }
-
-      $attributes = $this->attributes;
-      unset($attributes['wp_error']);
-
-      $result = wp_update_post($attributes, array_key_exists('wp_error', $options) ? (bool) $options['wp_error'] : null);
-
-	    if ($result) {
-
-		    if (is_wp_error($result)) {
-		    	$this->wp_error = $result;
-		    	return false;
-		    } else {
-		    	$this->fireModelEvent('updated', false);
-		    }
-
-		  } else {
-		  	// unknown error state
-		  	return false;
-		  }
-
-
-    }
-
-    return true;
-  }
-
-  /**
-   * Perform a model insert operation.
-   *
-   * @param  \Illuminate\Database\Eloquent\Builder  $query
-   * @param  array  $options
-   * @return bool
-   */
-  protected function performInsert(Builder $query, array $options = [])
-  {
-  	// clear out last error
-    $this->wp_error = null;
-
-    // fire normal Eloquent event
-    if ($this->fireModelEvent('creating') === false) {
-        return false;
-    }
-
-    $attributes = $this->attributes;
-
-    unset($attributes['wp_error']);
-
-    $result = wp_insert_post($attributes, array_key_exists('wp_error', $options) ? (bool) $options['wp_error'] : null);
-
-    if ($result) {
-
-	    if (is_wp_error($result)) {
-	    	$this->wp_error = $result;
-	    	return false;
-
-	    } else {
-	    	$this->ID = $result;
-
-	    	// We will go ahead and set the exists property to true, so that it is set when
-		    // the created event is fired, just in case the developer tries to update it
-		    // during the event. This will allow them to do so and run an update here.
-		    $this->exists = true;
-
-		    $this->wasRecentlyCreated = true;
-
-		    $this->fireModelEvent('created', false);
-
-		    return true;
-	    }
-
-	  } else {
-	  	// unknown error state
-	  	return false;
-	  }
-    
- 	}
-
- 	public function getWpError()
- 	{
- 		return $this->wp_error;
- 	}
 
 	function setTitleAttribute($value)
 	{
@@ -212,26 +116,48 @@ class Post extends Eloquent {
 	{
 
 	}
+
+	function setUpdatedAtAttribute($value)
+	{
+		$this->attributes['post_modified_gmt'] = Carbon::parse($value);
+		// TODO: update post_modified accordingly
+	}
+
+	function setCreatedAtAttribute($value)
+	{
+		$this->attributes['post_date_gmt'] = Carbon::parse($value);
+		// TODO: update post_date accordingly
+	}
+
+	function getUpdatedAtAttribute()
+	{
+		return !empty($this->attributes['post_modified_gmt']) ? Carbon::parse($this->attributes['post_modified_gmt']) : null;
+	}
+
+	function getCreatedAtAttribute()
+	{
+		return !empty($this->attributes['post_date_gmt']) ? Carbon::parse($this->attributes['post_date_gmt']) : null;
+	}
 	
 	function meta()
 	{
-		return $this->hasMany('FatPanda\Illuminate\WordPress\PostMeta');
+		return $this->hasMany('FatPanda\Illuminate\WordPress\Models\PostMeta');
 	}
 
 	function comments()
 	{
-		return $this->hasMany('FatPanda\Illuminate\WordPress\Comment', 'ID', 'comment_post_ID');
+		return $this->hasMany('FatPanda\Illuminate\WordPress\Models\Comment', 'ID', 'comment_post_ID');
 	}
 
 	function toArray()
 	{
 		$array = [
 			'id' => $this->id,
-			'date' => \Carbon\Carbon::parse($this->post_date)->format('c'),
-			'date_gmt' => \Carbon\Carbon::parse($this->post_date_gmt)->format('c'),
+			'date' => Carbon::parse($this->post_date)->format('c'),
+			'date_gmt' => Carbon::parse($this->post_date_gmt)->format('c'),
 			'guid' => $this->guid,
-			'modified' => \Carbon\Carbon::parse($this->post_modified)->format('c'),
-			'modified_gmt' => \Carbon\Carbon::parse($this->post_modified_gmt)->format('c'),
+			'modified' => Carbon::parse($this->post_modified)->format('c'),
+			'modified_gmt' => Carbon::parse($this->post_modified_gmt)->format('c'),
 			'slug' => $this->post_name,
 			'type' => $this->post_type,
 			'link' => get_the_permalink($this->id),

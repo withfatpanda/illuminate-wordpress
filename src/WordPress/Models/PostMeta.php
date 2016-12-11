@@ -1,5 +1,5 @@
 <?php 
-namespace FatPanda\Illuminate\WordPress;
+namespace FatPanda\Illuminate\WordPress\Models;
 
 use Illuminate\Database\Eloquent\Model as Eloquent;
 
