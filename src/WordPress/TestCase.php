@@ -1,31 +1,31 @@
 <?php
 namespace FatPanda\Illuminate\WordPress;
 
+use WP_REST_Request;
+use WP_REST_Server;
+use WP_REST_Response;
+use WP_UnitTestCase;
+
 /**
- * Baseclass for writing unit tests for plugins built with illuminate-wordpress
+ * Baseclass for writing unit tests for plugins built with illuminate-wordpress,
+ * including support for invoking and making assertions about REST API rests.
  */
-abstract class TestCase extends \WP_UnitTestCase {
+abstract class TestCase extends WP_UnitTestCase {
 
-	/** 
-	 * If testing a specific, plugin, all a TestCase needs to do is set the
-	 * class name of the plugin here
-	 * @type string
+	/**
+	 * @var array
 	 */
-	protected $plugin;
-
 	protected static $rest_api_functions = [ 'get', 'post', 'put', 'delete' ];
 
 	/**
-	 * Use the global function plugin to get a bootstrapped plugin instance
-	 * @param String The plugin name or class 
+	 * @var WP_REST_Response
 	 */
-	protected function plugin($name = null)
-	{
-		if (empty($name)) {
-			$name = $this->plugin;
-		}
-		return plugin($name);
-	}
+	protected $response = null;
+
+	/**
+	 * @var WP_User The user making any HTTP requests
+	 */
+	protected $user = null;
 
 	/** 
 	 * Make sure we have a REST server available
@@ -34,8 +34,27 @@ abstract class TestCase extends \WP_UnitTestCase {
 	  parent::setUp();
 	 
 	  global $wp_rest_server;
-	  $this->server = $wp_rest_server = new \WP_REST_Server;
+	  $this->server = $wp_rest_server = new WP_REST_Server;
 	  do_action( 'rest_api_init' );
+	}
+
+	public function login($user)
+	{
+		wp_set_current_user($user);
+		$this->user = $user;
+		return $this;
+	}
+
+	public function getUser()
+	{
+		return $this->user;
+	}
+
+	public function logout()
+	{
+		wp_set_current_user(0);
+		$this->user = null;
+		return $this;
 	}
 
 	/**
@@ -52,19 +71,39 @@ abstract class TestCase extends \WP_UnitTestCase {
 	{
 		if (in_array($name, static::$rest_api_functions)) {
 			array_unshift($args, strtoupper($name));
-			return call_user_func_array([ $this, 'api' ], $args);
+			return call_user_func_array([ $this, 'json' ], $args);
+		} else {
+			throw new \BadMethodCallException($name);
 		} 
 	}
 
-	protected function api($method, $url, $data = '')
+	function json($method, $uri, $data = '')
 	{
-		$request = new WP_REST_Request($method, $url);
+		$request = new WP_REST_Request($method, $uri);
 		$data = wp_parse_args($data);
 		foreach($data as $key => $val) {
 			$request->set_param($key, $val);
 		}
-		$response = $this->server->dispatch($request);
-		return $response;
+		$this->response = $this->server->dispatch($request);
+		return $this;
+	}
+
+	/**
+   * Asserts that the status code of the response matches the given code.
+   *
+   * @param  int  $status
+   * @return $this
+   */
+  protected function seeStatusCode($status)
+  {
+    $this->assertEquals($status, $this->response->get_status());
+
+    return $this;
+  }
+
+	function seeJson()
+	{
+
 	}
 
 }

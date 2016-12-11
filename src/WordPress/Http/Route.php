@@ -81,8 +81,6 @@ class Route {
 		return true;
 	}
 
-	
-
 	function when($callback)
 	{
 		$this->permissionCallback = $callback;

@@ -2,28 +2,33 @@
 use FatPanda\Illuminate\WordPress\TestCase;
 use FatPanda\Illuminate\WordPress\Models\Post;
 
-class TestPosts extends TestCase {
+use FatPanda\WordPress\Models\PostWithAlternativeConnection;
 
-	protected $plugin = 'test-plugin';
+class TestPosts extends TestCase {
 
 	function setUp()
 	{
-		$this->plugin()->withEloquent();
 		parent::setUp();
+		$this->plugin = plugin('test-plugin');
+		$this->plugin->withEloquent();
 	}
 	
-	function testPostCrud()
+	function testPostCrudAndEvents()
 	{
-		$this->plugin()->withEloquent();
+		$postTitle = 'Foo Bar';
 
 		$post = new Post();
 
 		$this->assertNull( $post->id );
-		$post->title = 'Foo';
+		$post->title = 'Foo Bar';
 		$post->save();
 
 		$this->assertNotNull( $post->id );
-		$this->assertEquals( 1, Post::wherePostTitle('Foo')->count() );
+		$this->assertEquals( 1, Post::wherePostTitle('Foo Bar')->count() );
+
+		Post::wherePostTitle('Foo Bar')->delete();
+
+		$this->assertEquals( 0, Post::wherePostTitle('Foo Bar')->count() );
 	}
 
 	/**
@@ -31,7 +36,16 @@ class TestPosts extends TestCase {
 	 */
 	function testAltConnectionName()
 	{
+		$post = new PostWithAlternativeConnection();
 
+		$this->assertNotEquals('mysql', $post->getConnectionName());
+
+		$this->assertNull( $post->id );
+		$post->title = 'Foo Bar Alternative';
+		$post->save();
+
+		$this->assertNotNull( $post->id );
+		$this->assertEquals( 1, Post::wherePostTitle('Foo Bar Alternative')->count() );
 	}
 
 }

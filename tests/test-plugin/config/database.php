@@ -45,7 +45,11 @@ return [
 
     'connections' => [
 
-        'wordpress' => $this->getDefaultDatabaseConnectionConfig()
+        'wordpress' => $this->getDefaultDatabaseConnectionConfig(),
+
+        // it's the same settings as above, but it's a different connection
+        // for the purposes of testing the Post::$connection property
+        'alternative' => $this->getDefaultDatabaseConnectionConfig(),
 
     ],
 

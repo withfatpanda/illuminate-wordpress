@@ -15,6 +15,7 @@
 * Setup unit testing and Travis-CI to guarantee future build stability
 * Added `FatPanda\Illuminate\WordPress\TestCase` class to ease some plugin unit testing tasks, e.g., REST API endpoint testing
 * Setup default Exception Handler: `FatPanda\Illuminate\Support\Exceptions\Handler`; still needs some work, e.g., detecting type of request and reporting the error accordingly
+* For clarity, renamed `Plugin::setRouterNamespace` and `Plugin::setRouterVersion` to `Plugin::setRestNamespace` and `Plugin::setRestVersion`, respectively
 
 ## v1.2.2
 

@@ -49,9 +49,9 @@ abstract class Plugin extends Container {
    */
   protected $customSchema = [];
 
-  protected $routerNamespace;
+  protected $restNamespace;
 
-  protected $routerVersion;
+  protected $restVersion;
 
   protected $reflection;
 
@@ -85,6 +85,7 @@ abstract class Plugin extends Container {
     'Illuminate\Http\Request' => 'registerRequestBindings',
     'encrypter' => 'registerEncrypterBindings',
     'composer' => 'registerComposerBindings',
+    'FatPanda\Illuminate\WordPress\Http\Router' =>'registerRestRouter',
     
 
     // 'auth' => 'registerAuthBindings',
@@ -665,7 +666,7 @@ abstract class Plugin extends Container {
       'Laravel\Lumen\Routing\UrlGenerator' => 'url',
       'Illuminate\Contracts\Validation\Factory' => 'validator',
       'Illuminate\Contracts\View\Factory' => 'view',
-      'FatPanda\Illuminate\WordPress\Http\Router' => 'router',
+      'router' => 'FatPanda\Illuminate\WordPress\Http\Router',
       'Illuminate\Contracts\Console\Kernel' => 'artisan',
       'artisan' => 'Illuminate\Contracts\Console\Kernel',
       'Laravel\Scout\Contracts\Factory' => 'scout',
@@ -773,9 +774,11 @@ abstract class Plugin extends Container {
       $this->{$propertyName} = $value;
     }
 
-    $this->bootRouter();
-
     $this->loadTextDomain();
+
+    // TODO: check to see if routes.php file is empty or not, and
+    // then only do this extra initialization if it has routes in it
+    $this->make('router');
   }
 
   /**
@@ -952,29 +955,22 @@ abstract class Plugin extends Container {
     load_plugin_textdomain( $this->textDomain, false, $this->getSlug() . rtrim($this->domainPath, '/') . '/' );
   }
 
-  protected function bootRouter()
+  /**
+   * Create router instance and load routes
+   */
+  protected function registerRestRouter()
   {
-    if (empty($this->routerNamespace)) {
-      $this->setRouterNamespace( $this->getSlug() );
-    }
-
-    if (empty($this->routerVersion)) {
-      // just use the major version number
-      $routerVersion = 'v1';
-      if (preg_match('/(\d+).*?/', $this->version, $matches)) {
-        $routerVersion = $matches[1];
-      }
-
-      $this->setRouterVersion($routerVersion);
-    }
-
-    $router = new Router($this);
-    $router->setNamespace($this->routerNamespace);
-    $router->setVersion($this->routerVersion);
-    $this->instance('router', $router);
-
-    $plugin = $this;
-    require $this->path() . '/src/routes.php';
+    $this->singleton('FatPanda\Illuminate\WordPress\Http\Router', function() {
+      // create the router
+      $router = new Router($this);
+      $router->setNamespace($this->getRestNamespace());
+      $router->setVersion($this->getRestVersion());
+      // load the routes
+      $plugin = $this;
+      require $this->basePath('src/routes.php');
+      
+      return $router;
+    });
   }
 
   /**
@@ -992,16 +988,42 @@ abstract class Plugin extends Container {
     }
   }
 
-  function setRouterNamespace($namespace)
+  function setRestNamespace($namespace)
   {
-    $this->routerNamespace = $namespace;
+    $this->restNamespace = $namespace;
     return $this;
   }
 
-  function setRouterVersion($version)
+  function getRestNamespace()
   {
-    $this->routerVersion = $version;
+    if (empty($this->restNamespace)) {
+      // default to plugin namespace slug
+      return $this->getSlug();
+    }
+    return $this->restNamespace;
+  }
+
+  function setRestVersion($version)
+  {
+    $this->restVersion = $version;
     return $this;
+  }
+
+  function getRestVersion()
+  {
+    if (empty($this->restVersion)) {
+      // if plugin metadata is available to us, use the Plugin's version
+      if ($this->getPluginData()) {
+        // just use the major version number
+        $restVersion = 'v1';
+        if (preg_match('/(\d+).*?/', $this->getPluginData('Version'), $matches)) {
+          $restVersion = 'v'.$matches[1];
+        }
+        return $restVersion;
+      }
+    }
+
+    return $this->restVersion;
   }
 
   abstract function onActivate();
