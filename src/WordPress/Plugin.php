@@ -30,21 +30,9 @@ abstract class Plugin extends Container {
 
   protected $basePath;
 
-  protected $name;
-
-  protected $pluginUri;
-
-  protected $description;
-
-  protected $version;
-
-  protected $author;
-
-  protected $authorUri;
-
-  protected $pluginData;
-
   /**
+   * Custom Post Types and Custom Taxonomies that need to be registered by this plugin.
+   *
    * @var array
    */
   protected $customSchema = [];
@@ -973,21 +961,6 @@ abstract class Plugin extends Container {
     });
   }
 
-  /**
-   * Get the metadata from this Plugin's bootstrap file;
-   * @param string Optionally, only return the value for a specific field
-   * @param mixed If $field is requested by not found in metadata, return $default instead
-   * @return mixed
-   */
-  function getPluginData($field = false, $default = null)
-  {
-    if ($field) {
-      return !empty($this->pluginData[$field]) ? $this->pluginData[$field] : $default;
-    } else {
-      return $this->pluginData;
-    }
-  }
-
   function setRestNamespace($namespace)
   {
     $this->restNamespace = $namespace;
@@ -1013,10 +986,10 @@ abstract class Plugin extends Container {
   {
     if (empty($this->restVersion)) {
       // if plugin metadata is available to us, use the Plugin's version
-      if ($this->getPluginData()) {
+      if ($this->version) {
         // just use the major version number
         $restVersion = 'v1';
-        if (preg_match('/(\d+).*?/', $this->getPluginData('Version'), $matches)) {
+        if (preg_match('/(\d+).*?/', $this->version, $matches)) {
           $restVersion = 'v'.$matches[1];
         }
         return $restVersion;

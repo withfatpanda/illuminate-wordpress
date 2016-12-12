@@ -3,7 +3,7 @@
 Plugin Name: 		Test Plugin
 Plugin URI:  		https://github.com/withfatpanda/illuminate-wordpress
 Description: 		A Plugin for testing features of illuminate-wordpress
-Version:     		1.3.0
+Version:     		1.0.0
 Author:      		Fat Panda
 Author URI:  		https://github.com/withfatpanda
 License:     		GPL2

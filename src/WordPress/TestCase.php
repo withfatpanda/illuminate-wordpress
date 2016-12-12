@@ -6,6 +6,13 @@ use WP_REST_Server;
 use WP_REST_Response;
 use WP_UnitTestCase;
 
+use PHPUnit_Framework_Assert as PHPUnit;
+use PHPUnit_Framework_ExpectationFailedException;
+
+use Illuminate\Support\Arr;
+use Illuminate\Support\Str;
+
+
 /**
  * Baseclass for writing unit tests for plugins built with illuminate-wordpress,
  * including support for invoking and making assertions about REST API rests.
@@ -101,9 +108,150 @@ abstract class TestCase extends WP_UnitTestCase {
     return $this;
   }
 
-	function seeJson()
-	{
+	/**
+   * Assert that the response contains JSON.
+   *
+   * @param  array|null  $data
+   * @param  bool  $negate
+   * @return $this
+   */
+  public function seeJson(array $data = null, $negate = false)
+  {
+    if (is_null($data)) {
+      $content = $this->response->get_data();
 
-	}
+      if (is_string($content)) {
+      	$this->assertTrue(json_decode($content) !== false);
+      } 
+      return $this;
+    }
+
+    try {
+      return $this->seeJsonEquals($data);
+    } catch (PHPUnit_Framework_ExpectationFailedException $e) {
+      return $this->seeJsonContains($data, $negate);
+    }
+  }
+
+  /**
+   * Assert that the response contains an exact JSON array.
+   *
+   * @param  array  $data
+   * @return $this
+   */
+  public function seeJsonEquals(array $data)
+  {
+    $actual = json_encode(Arr::sortRecursive(
+      (array) $this->decodeResponseJson()
+    ));
+
+    $this->assertEquals(json_encode(Arr::sortRecursive($data)), $actual);
+
+    return $this;
+  }
+
+  /**
+   * Assert that the response contains the given JSON.
+   *
+   * @param  array  $data
+   * @param  bool  $negate
+   * @return $this
+   */
+  protected function seeJsonContains(array $data, $negate = false)
+  {
+    $method = $negate ? 'assertFalse' : 'assertTrue';
+
+    $actual = json_encode(Arr::sortRecursive(
+        (array) $this->decodeResponseJson()
+    ));
+
+    foreach (Arr::sortRecursive($data) as $key => $value) {
+      $expected = $this->formatToExpectedJson($key, $value);
+
+      $this->{$method}(
+        Str::contains($actual, $expected),
+        ($negate ? 'Found unexpected' : 'Unable to find').' JSON fragment'.PHP_EOL."[{$expected}]".PHP_EOL.'within'.PHP_EOL."[{$actual}]."
+      );
+    }
+
+    return $this;
+  }
+
+  /**
+   * Assert that the JSON response has a given structure.
+   *
+   * @param  array|null  $structure
+   * @param  array|null  $responseData
+   * @return $this
+   */
+  public function seeJsonStructure(array $structure = null, $responseData = null)
+  {
+    if (is_null($structure)) {
+      return $this->seeJson();
+    }
+
+    if (! $responseData) {
+      $responseData = $this->decodeResponseJson();
+    }
+
+    foreach ($structure as $key => $value) {
+      if (is_array($value) && $key === '*') {
+        $this->assertInternalType('array', $responseData);
+
+        foreach ($responseData as $responseDataItem) {
+          $this->seeJsonStructure($structure['*'], $responseDataItem);
+        }
+      } elseif (is_array($value)) {
+        $this->assertArrayHasKey($key, $responseData);
+        $this->seeJsonStructure($structure[$key], $responseData[$key]);
+      } else {
+        $this->assertArrayHasKey($value, $responseData);
+      }
+    }
+
+    return $this;
+}
+
+  /**
+   * Format the given key and value into a JSON string for expectation checks.
+   *
+   * @param  string  $key
+   * @param  mixed  $value
+   * @return string
+   */
+  protected function formatToExpectedJson($key, $value)
+  {
+    $expected = json_encode([$key => $value]);
+
+    if (Str::startsWith($expected, '{')) {
+      $expected = substr($expected, 1);
+    }
+
+    if (Str::endsWith($expected, '}')) {
+      $expected = substr($expected, 0, -1);
+    }
+
+    return trim($expected);
+  }
+
+
+  /**
+   * Validate and return the decoded response JSON.
+   *
+   * @return array
+   */
+  protected function decodeResponseJson()
+	{
+    $decodedResponse = $this->response->get_data();
+    if (is_string($decodedResponse)) {
+    	$decodedResponse = json_decode($decodedResponse, true);
+    }
+
+    if (is_null($decodedResponse) || $decodedResponse === false) {
+      $this->fail('Invalid JSON was returned from the route. Perhaps an exception was thrown?');
+    }
+
+    return $decodedResponse;
+  }
 
 }
