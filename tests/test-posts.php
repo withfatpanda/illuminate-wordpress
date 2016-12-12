@@ -97,6 +97,7 @@ class TestPosts extends TestCase {
 		$widget->save();
 
 		$this->assertEquals( 1, PostMeta::wherePostId($widget->id)->whereMetaKey('_special_property')->count() );
+		fwrite(STDERR, print_r($this->plugin->db->table('postmeta')->get(), true));
 		$this->assertEquals( [ 'foo' => 'bar' ], get_post_meta($widget->id, '_special_property', true) );
 		$this->assertEquals( [ 'foo' => 'bar' ], Widget::find($widget->id)->special_property );
 
