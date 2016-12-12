@@ -403,7 +403,11 @@ class Post extends Eloquent implements Customschema {
       return $this->getRelationshipFromMethod($key);
     }
 
-    $meta = PostMeta::wherePostId($this->id)->whereMetaKey('_' . $key)->first();
+    $meta = PostMeta::where([ 
+    	'post_id' => $this->id, 
+    	'meta_key' => '_' . $key
+    ])->first();
+    
     if ($meta) {
     	return $meta->value;
     }
