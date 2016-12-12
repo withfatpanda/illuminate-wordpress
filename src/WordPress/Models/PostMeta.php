@@ -9,6 +9,10 @@ class PostMeta extends Eloquent {
 
 	protected $primaryKey = 'meta_id';
 
+	protected $fillable = [ 'post_id', 'key', 'value' ];
+
+	public $timestamps = false;
+
 	function getIdAttribute()
 	{
 		return $this->meta_id;
@@ -22,6 +26,16 @@ class PostMeta extends Eloquent {
 	function getValueAttribute()
 	{
 		return maybe_unserialize($this->meta_value);
+	}
+
+	function setKeyAttribute($value)
+	{
+		$this->attributes['meta_key'] = $value;
+	}
+
+	function setValueAttribute($value)
+	{
+		$this->attributes['meta_value'] = maybe_serialize($value);
 	}
 
 	function meta()

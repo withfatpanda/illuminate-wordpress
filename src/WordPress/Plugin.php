@@ -818,9 +818,9 @@ abstract class Plugin extends Container {
    */
   public function register($provider, $options = [], $force = false)
   {
-    if (is_string($provider)) {
+    if (is_string($provider) || is_class($provider)) {
       $implements = class_implements($provider);
-      if (isset($implements['FatPanda\Illuminate\WordPress\CustomSchema'])) {
+      if (isset($implements['FatPanda\Illuminate\WordPress\Concerns\CustomSchema'])) {
         $this->customSchema[] = $provider;
         return;
       }

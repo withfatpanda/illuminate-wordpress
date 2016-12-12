@@ -6,7 +6,7 @@
 * Flushed some more dead code from early prototypes
 * Added Scout dependency and setup provider and aliases to be available to all Plugins
 * Renamed `CustomTaxonomy` to `Taxonomy`
-* Renamed `CustomPostType` to `PostType`
+* Refactored `CustomPostType` into `Post` class, reducing complexity
 * Created `CustomSchema` interface to unify registration of Taxonomy and PostType subclasses
 * Modified `Plugin::register` to accept both `ServiceProvider` classes as well as `CustomSchema` implementers
 * Added support for running Commands through Artisan Console via WP-CLI

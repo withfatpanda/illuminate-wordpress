@@ -1,6 +1,9 @@
 <?php
 namespace FatPanda\Illuminate\WordPress\Models;
 
+use FatPanda\Illuminate\WordPress\Plugin;
+use FatPanda\Illuminate\WordPress\Concerns\CustomSchema;
+
 abstract class Taxonomy implements CustomSchema {
 
 	protected $tax_type = 'custom_taxonomy';

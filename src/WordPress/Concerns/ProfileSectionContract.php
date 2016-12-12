@@ -1,5 +1,5 @@
 <?php
-namespace FatPanda\Illuminate\WordPress\Models;
+namespace FatPanda\Illuminate\WordPress\Concerns;
 
 use FatPanda\Illuminate\Support\Exceptions\ValidationException;
 

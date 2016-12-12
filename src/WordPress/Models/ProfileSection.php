@@ -4,6 +4,7 @@ namespace FatPanda\Illuminate\WordPress\Models;
 use Illuminate\Database\Eloquent\Model as Eloquent;
 use Illuminate\Support\Facades\Validator;
 use FatPanda\Illuminate\Support\Exceptions\ValidationException;
+use FatPanda\Illuminate\WordPress\Concerns\ProfileSectionContract;
 
 class ProfileSection extends Eloquent implements ProfileSectionContract {
 
