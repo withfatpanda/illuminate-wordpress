@@ -110,7 +110,6 @@ class Post extends Eloquent implements Customschema {
 		// persist meta data
 		static::saved(function($post) {
 			foreach($post->dirtyMetaData as $key => $value) {
-				/*
 				$meta = PostMeta::firstOrNew([ 
 					'post_id' => $post->id, 
 					'meta_key' => '_' . $key
@@ -131,9 +130,6 @@ class Post extends Eloquent implements Customschema {
 				do_action( "updated_post_meta", $meta->id, $post->id, $meta->key, $value );
 				do_action( 'updated_postmeta', $meta->id, $post->id, $meta->key, $meta_value );
 
-				unset($post->dirtyMetaData[$key]);
-				*/
-				update_post_meta($post->id, '_' . $key, $value);
 				unset($post->dirtyMetaData[$key]);
 			}			
 		});
