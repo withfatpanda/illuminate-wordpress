@@ -11,7 +11,7 @@ use Illuminate\Support\Str;
 use Carbon\Carbon;
 use FatPanda\Illuminate\WordPress\Models\PostMeta;
 
-class Post extends Eloquent implements Customschema {
+class Post extends Eloquent implements CustomSchema {
 
 	use CustomizablePostType;
 
@@ -21,9 +21,9 @@ class Post extends Eloquent implements Customschema {
 
 	protected $fillable = [ 'id' ];
 
-	const CREATED_AT = 'post_date_gmt';
+	const CREATED_AT = 'post_date';
 
-	const UPDATED_AT = 'post_modified_gmt';
+	const UPDATED_AT = 'post_modified';
 
 	protected $dates = [ 'post_date', 'post_date_gmt', 'post_modified', 'post_modified_gmt' ];
 
@@ -124,7 +124,6 @@ class Post extends Eloquent implements Customschema {
 			
 				$meta->save();
 				
-				// Clear the caches.
 				wp_cache_delete($post->id, 'post_meta');
 
 				do_action( "updated_post_meta", $meta->id, $post->id, $meta->key, $value );
@@ -325,26 +324,68 @@ class Post extends Eloquent implements Customschema {
 
 	}
 
+	function freshTimestamp()
+	{
+		$carbon = new Carbon;
+
+		// This makes sure that all auto timestamping
+		// matches WordPress' configured offset, whatever
+		// that might be
+		$carbon->timestamp = current_time('timestamp');
+
+		return $carbon;
+	}
+
+	/**
+   * Update the creation and update timestamps; 
+   * WordPress has two timestamp fields, obviously.
+   *
+   * @return void
+   */
+	protected function updateTimestamps()
+	{
+		$time = $this->freshTimestamp();
+
+		$gmt = new Carbon;
+		$gmt->timestamp = $time->timestamp - ( get_option( 'gmt_offset' ) * HOUR_IN_SECONDS );
+
+    if (! $this->isDirty(static::UPDATED_AT)) {
+      $this->setUpdatedAt($time);
+    }
+
+    if (! $this->exists && ! $this->isDirty(static::CREATED_AT)) {
+      $this->setCreatedAt($time);
+    }
+
+    if (! $this->isDirty('post_modified_gmt')) {
+      $this->post_modified_gmt = $gmt;
+    }
+
+    if (! $this->exists && ! $this->isDirty('post_gmt')) {
+      $this->post_gmt = $gmt;
+    }
+	}
+
 	function setUpdatedAtAttribute($value)
 	{
-		$this->attributes['post_modified_gmt'] = Carbon::parse($value);
+		$this->attributes['post_modified'] = Carbon::parse($value);
 		// TODO: update post_modified accordingly
 	}
 
 	function setCreatedAtAttribute($value)
 	{
-		$this->attributes['post_date_gmt'] = Carbon::parse($value);
+		$this->attributes['post_date'] = Carbon::parse($value);
 		// TODO: update post_date accordingly
 	}
 
 	function getUpdatedAtAttribute()
 	{
-		return !empty($this->attributes['post_modified_gmt']) ? Carbon::parse($this->attributes['post_modified_gmt']) : null;
+		return !empty($this->attributes['post_modified']) ? Carbon::parse($this->attributes['post_modified']) : null;
 	}
 
 	function getCreatedAtAttribute()
 	{
-		return !empty($this->attributes['post_date_gmt']) ? Carbon::parse($this->attributes['post_date_gmt']) : null;
+		return !empty($this->attributes['post_date']) ? Carbon::parse($this->attributes['post_date']) : null;
 	}
 
 	/**

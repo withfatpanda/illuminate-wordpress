@@ -103,10 +103,6 @@ class TestPosts extends TestCase {
 		$this->assertEquals( 1, PostMeta::wherePostId($widget->id)->whereMetaKey('_special_property')->count() );
 		$this->assertEquals( [ 'foo' => 'bar' ], Widget::find($widget->id)->special_property );
 
-		// This doesn't work because of the transaction that's
-		// in place care of WP_UnitTestCase::setUp
-		// $this->assertEquals( [ 'foo' => 'bar' ], get_post_meta($widget->id, '_special_property', true) );
-
 		$widget->special_property = [ 'wing' => 'ding' ];
 		$widget->save();
 
