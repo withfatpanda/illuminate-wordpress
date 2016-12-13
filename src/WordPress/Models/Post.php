@@ -116,11 +116,22 @@ class Post extends Eloquent implements Customschema {
 				]);
 					
 				$meta->key = '_' . $key;
-				$meta->value = $value;
+				$meta_value = sanitize_meta($meta->key, $value, 'post');
+				$meta->meta_value = maybe_serialize($meta_value);
+				
+				do_action( "update_post_meta", $meta->id, $post->id, $meta->key, $value );
+				do_action( 'update_postmeta', $meta->id, $post->id, $meta->key, $meta_value );
+			
 				$meta->save();
 				
+				// Clear the caches.
+				wp_cache_delete($post->id, 'post_meta');
+
+				do_action( "updated_post_meta", $meta->id, $post->id, $meta->key, $value );
+				do_action( 'updated_postmeta', $meta->id, $post->id, $meta->key, $meta_value );
+
 				unset($post->dirtyMetaData[$key]);
-			}
+			}			
 		});
 
 		// TODO: setup events for integrating CRUD operation back into WordPress
@@ -407,7 +418,7 @@ class Post extends Eloquent implements Customschema {
     	'post_id' => $this->id, 
     	'meta_key' => '_' . $key
     ])->first();
-    
+
     if ($meta) {
     	return $meta->value;
     }
