@@ -3,6 +3,9 @@ namespace FatPanda\WordPress;
 
 class Plugin extends \FatPanda\Illuminate\WordPress\Plugin {
 
+	
+	public $hasTriggeredBasicRewriteRule = false;
+
 	/**
    * The Artisan commands provided by your application.
    * @see https://withbamboo.com/articles/artisan

@@ -69,6 +69,11 @@ class Router extends ServiceProvider {
 		});
 	}
 
+	function getApp()
+	{
+		return $this->app;
+	}
+
 	function setNamespace($namespace)
 	{
 		$this->namespace = $this->queryVarName = $namespace;
@@ -178,80 +183,39 @@ class Router extends ServiceProvider {
 	}
 
 	/**
-	 * OMG, make creating new rewrite rules in WordPress easier;
-	 * don't forget to flush afteward. Don't do it with flush_rewrite_rules()
-   * unless you're sure it doesn't fire on every request, otherwise your
-   * application will fall over.
+	 * Create a new Rewrite rule, either by mapping the matching
+	 * components of a regular expression onto the query args submitted
+	 * to index.php (the default rewrite mechanism), or by invoking
+	 * a callable in response to a matching URL.
 	 * @param String The route for matching URLs; can include regex, but we'll also
 	 * substitute any {arg} we find to create named components in the regex
 	 * @param mixed What to do when this URL is a match; Strings are passed straight through,
 	 * and are assumed to take the form index.php?whatever=whatever, and may include $matches
-	 * references to your URL regex; you can also specify a callable
-	 * @param String if "top", takes precedence over existing rules; if "bottom", all other
-	 * existing rules take precedence; default is "top"
+	 * references to your URL regex; you can also specify a callable, which will
+	 * be invoked when the request matches this rule; the return result of that function
+	 * should be an array, and supports the following elements:
+	 * @param mixed Options to influence the rewrite rule and/or the response
+	 *   after - String if "top", takes precedence over existing rules; if "bottom", all other
+	 * 	 existing rules take precedence; default is "top"
 	 * @see add_rewrite_rule
+	 * @return RewriteRule
 	 */
-	function rewrite($route, $action = 'index.php', $after = 'top')
+	function rewrite($route, $action = 'index.php', $options = [])
 	{
-		add_action('init', function() use ($route, $action, $after) {
-			global $wp;
-			$query = null;
+		if (is_string($options)) {
+			$options = [ 'after' => $options ];
+		
+		} else if (!is_array($options)) {
+			$options = [];
+		}
 
-			// if redirect is a callable, just tell the rewrite rule
-			// to send requests to index.php; then setup a callback in
-			// parse_request to invoke $action
-			if (is_callable($action)) {
-				$query = 'index.php';
+		$defaults = [
+			'permission_callback' => $this->defaultPermissionCallback,
+		];
 
-			// otherwise, parse $action as a URL string, and then make
-			// sure that WP is aware of all of the query vars in the 
-			// redirect string
-			} else if ($parts = parse_url($action)) {
-				$query = $action;
+		$options = array_merge($defaults, $options);
 
-				if (!empty($parts['query'])) {
-					$args = wp_parse_args($parts['query']);
-					foreach(array_keys($args) as $name) {
-						$wp->add_query_var($name);
-					}
-				}
-			}
-
-			// remove any preceeding forward slashes—the underlying rewrite engine doesn't like them
-			$route = ltrim($route, '/');
-
-			list($regex, $tokens) = static::substituteUrlArgTokens($route, true);
-			
-			add_rewrite_rule($regex, $query, $after);
-
-			if (is_callable($action)) {
-				add_action('parse_request', function($wp) use ($regex, $tokens, $action) {
-					if ($regex === $wp->matched_rule) {
-						$args = [];
-						
-						preg_match('#'.$wp->matched_rule.'#', $wp->request, $matches);
-						// print_r($matches);
-						foreach($tokens as $token) {
-							if (!empty($matches[$token])) {
-								$args[] = $matches[$token];
-							} else {
-								$args[] = null;
-							}
-						}
-
-						$result = call_user_func_array($action, $args);
-						if (empty($result)) {
-							do_action('shutdown');
-							exit;
-						}
-					}
-				});
-			}
-
-			if (defined('WP_DEBUG') && WP_DEBUG) {
-				flush_rewrite_rules();
-			}
-		}, 1);
+		return new RewriteRule($this, $route, $action, $options);
 	}
 
 	/**
@@ -278,8 +242,8 @@ class Router extends ServiceProvider {
 	}
 
 	/**
-	 * Create a new route; note, you should probably use Router::resource(),
-	 * Router::api(), or Router::controller() instead.
+	 * Create a new route; note, you should probably use Router::resource()
+	 * or Router::api() instead.
 	 * @param String Comma-separated list of request methods, e.g., 'GET, POST'
 	 * @param String The URL path
 	 * @param mixed A callable
@@ -292,6 +256,10 @@ class Router extends ServiceProvider {
 	 */
 	function route($method, $route, $callback = null, $options = []) 
 	{
+		if (did_action('rest_api_init') || did_action('process_request')) {
+			throw new \Exception("Too late to create new routes");
+		}
+
 		// treat strings, when not callable, as "Controller@method"
 		if (is_string($callback) && !is_callable($callback)) {
 			if (!preg_match('#(.*?)@([\\w\_]+)$#i', $callback, $matches)) {
@@ -409,7 +377,7 @@ class Router extends ServiceProvider {
 	 * @param string The route, expressed with mustache-wrapped args
 	 * @return string Regular expression garbage... yay.
 	 */
-	static function substituteUrlArgTokens($route, $greedy = false)
+	static function substituteUrlArgTokens($route)
 	{	
 		$orig = $route;
 		$tokens = [];
@@ -422,7 +390,7 @@ class Router extends ServiceProvider {
 			// capture what we're going to replace 
 			$subject = $matches[0];
 			// make the replacement, e.g., (?P<id>[a-z\-\_]+)
-			$replacement = '(?P<'.$arg.'>.+'.(!$greedy ? '?' : '').')';
+			$replacement = '(?P<'.$arg.'>[^/]+)';
 			// if the original arg was preceeded by a forward slash, we need to put it back
 			if (stripos($subject, '/') === 0) {
 				$replacement = '/' . $replacement;

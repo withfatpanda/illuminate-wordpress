@@ -11,8 +11,46 @@ class TestRouting extends TestCase {
 		parent::setUp();
 
 		$this->plugin = plugin('test-plugin');
-
 		$this->administrator = $this->factory->user->create(['role' => 'administrator']);
+		$this->post = $this->factory->post->create(['post_name' => 'widget-name', 'post_type' => 'widget']);
+
+		// gotta set a default permalink structure;
+		// otherwise WP_UnitTestCase::go_to doesn't do anything
+		$this->set_permalink_structure('/%postname%/');
+	}
+
+	/**
+	 * Test basic rewriting
+	 */
+	function testBasicRewriting()
+	{
+		$this->assertFalse($this->plugin->hasTriggeredBasicRewriteRule);
+		$this->go_to( home_url('test/basic') );
+		$this->assertTrue($this->plugin->hasTriggeredBasicRewriteRule);
+	}
+
+	/**
+	 * Test basic overriding of built-in query vars
+	 */
+	function testBuiltInQueryVars()
+	{
+		$this->go_to( home_url() );
+		$this->assertEquals('', get_query_var('post_type'));
+		$this->assertTrue(is_front_page());
+
+		$this->go_to( home_url('type/widget') );
+		$this->assertEquals('widget', get_query_var('post_type'));
+		$this->assertFalse(is_post_type_archive('foo'));
+		$this->assertTrue(is_post_type_archive('widget'));
+		$this->assertFalse(is_single());
+
+		$this->go_to( home_url('type/widget/widget-name') );
+		$this->assertEquals('widget', get_query_var('post_type'));
+		$this->assertEquals('widget-name', get_query_var('name'));
+		$this->assertFalse(is_404());
+		$this->assertTrue(is_single('widget-name'));
+
+
 	}
 
 	/**
@@ -25,6 +63,7 @@ class TestRouting extends TestCase {
 		$this->assertEquals( $this->plugin->getRestNamespace(), $this->plugin->router->getNamespace() );
 		$this->assertEquals( $this->plugin->getRestVersion(), $this->plugin->router->getVersion() );
 	}
+
 
 	/**
 	 * Test an unautheticated GET request.
