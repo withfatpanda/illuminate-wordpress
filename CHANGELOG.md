@@ -1,5 +1,9 @@
 # CHANGELOG
 
+## v1.3.1
+
+* Remove incomplete test case
+
 ## v1.3.0
 
 * Fixed a number of previously undiscovered issues with the use of global function helpers inside of core Providers

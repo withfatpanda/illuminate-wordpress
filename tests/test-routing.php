@@ -49,8 +49,6 @@ class TestRouting extends TestCase {
 		$this->assertEquals('widget-name', get_query_var('name'));
 		$this->assertFalse(is_404());
 		$this->assertTrue(is_single('widget-name'));
-
-
 	}
 
 	/**
