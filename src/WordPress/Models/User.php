@@ -106,7 +106,7 @@ class User extends Model implements AuthenticatableContract, AuthorizableContrac
 
     function getGravatarAttribute()
     {
-        return '//www.gravatar.com/avatar/' . md5(strtolower($this->user_email)) . '.jpg';
+        return 'https://www.gravatar.com/avatar/' . md5(strtolower($this->user_email)) . '.jpg';
     }
 
     function can($ability, $arguments = [])

@@ -1,5 +1,9 @@
 # CHANGELOG
 
+## v1.3.7
+
+* Always load Gravatar via HTTPs
+
 ## v1.3.6
 
 * Put storage path inside WordPress content path
