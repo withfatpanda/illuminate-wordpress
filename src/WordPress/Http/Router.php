@@ -386,7 +386,7 @@ class Router extends ServiceProvider {
 
 	public function isDebugMode()
   {
-     return ( defined('WP_DEBUG') && WP_DEBUG ) || $this->plugin->config('app.debug') || current_user_can('administrator');
+     return ( defined('WP_DEBUG') && WP_DEBUG ) || $this->plugin->config->get('app.debug') || current_user_can('administrator');
   }
 
 	/**
