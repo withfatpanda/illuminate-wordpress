@@ -1014,7 +1014,10 @@ abstract class Plugin extends Container {
 
   final function finalOnActivate()
   {
-    flush_rewrite_rules();
+    global $wp_rewrite;
+    if (!is_null($wp_rewrite)) {
+      flush_rewrite_rules();
+    }
   }
 
   protected function registerCustomSchema()

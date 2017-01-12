@@ -1,5 +1,9 @@
 # CHANGELOG
 
+## v1.3.4
+
+* Under some circumstances, plugins are activated before global $wp_rewrite has been initialized; in these instances, calling flush_rewrite_rules() results in a fatal error; stop doing that
+
 ## v1.3.3
 
 * Trap theme-dir errors in test runner
