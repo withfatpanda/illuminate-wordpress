@@ -1,5 +1,9 @@
 # CHANGELOG
 
+## v1.3.6
+
+* Put storage path inside WordPress content path
+
 ## v1.3.5
 
 * Bug fix: calling function that doesn't exist: Plugin::config(), should be Plugin::$config->get()

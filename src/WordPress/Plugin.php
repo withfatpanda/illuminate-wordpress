@@ -673,7 +673,7 @@ abstract class Plugin extends Container {
    */
   public function storagePath($path = null)
   {
-    return $this->basePath().'/storage'.($path ? '/'.$path : $path);
+    return WP_CONTENT_DIR . '/storage/' . Str::slug($this->getNamespaceName()) . '/' . ( $path ? '/' . $path : $path );
   }
 
   /**
