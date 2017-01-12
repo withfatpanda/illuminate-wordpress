@@ -1,5 +1,9 @@
 # CHANGELOG
 
+## v1.3.3
+
+* Trap theme-dir errors in test runner
+
 ## v1.3.2
 
 * Add package illuminate/mail

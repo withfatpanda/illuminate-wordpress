@@ -46,6 +46,10 @@ trait RegistersExceptionHandlers
                 if (stripos($file, 'acf-repeater/views/field.php') !== false && $message === 'A non-numeric value encountered') {
                     return false;
                 }
+                // ignore wordpress test cases
+                if ($message === '/tmp/wordpress-tests-lib/includes/../data/themedir1 is not readable') {
+                    return false;
+                }
 
                 throw new ErrorException($message, 0, $level, $file, $line);
             }
