@@ -1,8 +1,9 @@
 <?php
 namespace FatPanda\Illuminate\WordPress\Http;
 
-use \FatPanda\Illuminate\WordPress\Http\Controllers\ProfileController;
+use FatPanda\Illuminate\WordPress\Plugin;
 use Illuminate\Support\ServiceProvider;
+use FatPanda\Illuminate\Support\Exceptions\Handler as ExceptionHandler;
 
 /**
  * A class for simplifying the creation of routes within the WP REST API,
@@ -47,8 +48,8 @@ class Router extends ServiceProvider {
 	/**
 	 * @return void
 	 */
-	function __construct($app) {
-		$this->app = $app;
+	function __construct(Plugin $plugin) {
+		$this->plugin = $plugin;
 
 		static::setupResourceActions();
 		
@@ -69,9 +70,20 @@ class Router extends ServiceProvider {
 		});
 	}
 
+	/**
+	 * @deprecated Use Router::getPlugin instead
+	 */
 	function getApp()
 	{
-		return $this->app;
+		return $this->getPlugin();
+	}
+
+	/**
+	 * Get the plugin to which this Router is attached
+	 */
+	function getPlugin()
+	{
+		return $this->plugin;
 	}
 
 	function setNamespace($namespace)
@@ -242,6 +254,142 @@ class Router extends ServiceProvider {
 	}
 
 	/**
+	 * Give Routers direct access to the ServiceContainer.
+	 */
+	function &__get($name)
+	{
+		// deprecated support for $this->app
+		if ('app' === $name) {
+			return $this->plugin;
+		} else {
+			return $this->plugin->{$name};
+		}
+	}
+
+	/**
+	 * Given the classname of a controller, seek out a proper
+	 * namespace; start with the set controller classpath, then
+	 * move on to the core default, then try looking for the
+	 * class without any classpath at all.
+	 * @return The fully-qualified classpath, or, if not found, a
+	 * WP_Error object
+	 */
+	protected function getControllerClass($name)
+	{
+		$controllerClass = $name;
+		if (!class_exists($name)) {
+			$controllerClass = $this->controllerClasspath . '\\' . $name;
+			if (!class_exists($controllerClass)) {
+				$controllerClass = '\\FatPanda\\Illuminate\\WordPress\\Http\\Controllers\\' . $name;
+				if (!class_exists($controllerClass)) {
+					$controllerClass = new \WP_Error('class_not_found', "Class Not Found: {$name}");
+				}
+			}
+		}
+
+		return $controllerClass;
+	}
+
+	/**
+	 * Invoke the given action on the given class, after resolving
+	 * an existing Class that matches the given class as named; map
+	 * arguments to controller action by dependency injection.
+	 * @param String The name of a controller to invoke; presumed to be taken from routes config
+	 * @param String The name of the action to invoke; must be a callable method on the controller
+	 * @param array Arguments to pass into the invocation of the method
+	 * @return mixed The result of the action invocation
+	 * @throws Exception For various reasons, generally internal to the Controller's invocation
+	 */
+	private function invokeControllerAction($controllerClassNamed, $actionNamed, array $givenArgs = [])
+	{
+		if (is_wp_error($controllerClass = $this->getControllerClass($controllerClassNamed))) {
+			return $controllerClass;
+		}
+		$reflection = new \ReflectionClass($controllerClass);
+		$controller = new $controllerClass($this);
+		if (!$reflection->hasMethod($actionNamed)) {
+			return new \WP_Error('method_not_found', "Method Not Found: {$controllerClassNamed}@{$actionNamed}", ['status' => 404]);
+		}
+		$method = $reflection->getMethod($actionNamed);
+	
+		$args = [];
+		if (!empty($givenArgs)) {
+			$args[] = $givenArgs[0];
+		}
+
+		if (count($givenArgs) > 1) {
+			$params = $method->getParameters();
+
+			// loop over method params, ignoring the first
+			for ($i=1; $i<count($params); $i++) {
+				$param = $params[$i];
+
+				// if the param has no type, just map the matching
+				// argument by numeric order (if it exists)
+				if (!$param->hasType()) {
+					if (!empty($givenArgs[$i])) {
+						$args[] = $givenArgs[$i];
+					}
+				} else {
+					$class = $param->getClass();
+					// map in plugin
+					if ($class->isSubclassOf(\Illuminate\Container\Container::class)) {
+						$args[] = $this->getPlugin();
+					// otherwise, use the service container to build whatever
+					} else {
+						$args[] = $this->getPlugin()->make((string) $class);
+					}
+				}
+			}
+		}
+
+		return $method->invokeArgs($controller, $args);
+	}
+
+	/**
+	 * Given an Exception, build a data package suitable for reporting
+	 * the error to the client.
+	 * @param Exception The exception
+	 * @return array
+	 */
+	public function buildErrorResponse(\Exception $e)
+	{
+    $response = [ 
+        'type' => get_class($e),
+        'code' => $e->getCode(),
+        'message' => $e->getMessage(),
+        'data' => [
+            'status' => 500
+        ]
+    ];
+
+    if ($e instanceof ModelNotFoundException) {
+        $response['data']['status'] = 404;
+    }
+
+    if ($e instanceof HttpException) {
+        $response['data']['status'] = $e->getStatusCode();
+    }
+
+    if ($e instanceof \FatPanda\Illuminate\Support\Exceptions\ValidationException) {
+        $response['data']['errors'] = $e->messages();
+    }
+
+    if ($this->isDebugMode()) {
+        $response['line'] = $e->getLine();
+        $response['file'] = $e->getFile();
+        $response['trace'] = $e->getTraceAsString();
+    }
+
+    return $response;
+	}
+
+	public function isDebugMode()
+  {
+     return ( defined('WP_DEBUG') && WP_DEBUG ) || $this->plugin->config('app.debug') || current_user_can('administrator');
+  }
+
+	/**
 	 * Create a new route; note, you should probably use Router::resource()
 	 * or Router::api() instead.
 	 * @param String Comma-separated list of request methods, e.g., 'GET, POST'
@@ -263,20 +411,11 @@ class Router extends ServiceProvider {
 		// treat strings, when not callable, as "Controller@method"
 		if (is_string($callback) && !is_callable($callback)) {
 			if (!preg_match('#(.*?)@([\\w\_]+)$#i', $callback, $matches)) {
-				throw new \Exception("Improperly formed controller reference: must be ControllerClassName@methodName. Instead: {$callback}");
+				throw new \Exception("Improperly formed controller reference: must be ControllerClassName@methodName. Instead, found: {$callback}");
 			}
 			$callback = function() use ($matches) {
-				if (!class_exists($matches[1])) {
-					$controllerClass = $this->controllerClasspath . '\\' . $matches[1];
-				} else {
-					$controllerClass = $matches[1];
-				}
-				$controller = new $controllerClass($this);
-				$callable = [$controller, $matches[2]];
-				if (!is_callable($callable)) {
-					return new \WP_Error('method_not_found', "Method Not Found: {$controllerClass}@{$matches[2]}", ['status' => 404]);
-				}
-				return call_user_func_array($callable, func_get_args());
+				// args here will include WP_REST_Request and Http\Route
+				return $this->invokeControllerAction($matches[1], $matches[2], func_get_args());
 			};
 
 		// treat arrays, when not callable, as config sets that must include a "uses" argument
@@ -329,47 +468,46 @@ class Router extends ServiceProvider {
 		return $this->version;
 	}
 
-	function enableProfileController($profileControllerClass = ProfileController::class) {
+	function enableProfileController($profileControllerClass = 'ProfileController') {
 		$this->get('profile/settings/{name?}', $profileControllerClass.'@getSettings');
 
-		$this->post('profile/settings/{name}', 'ProfileController@postSettings');
+		$this->post('profile/settings/{name}', $profileControllerClass.'@postSettings');
 
-		$this->put('profile/settings/{name}', 'ProfileController@putSettings');
+		$this->put('profile/settings/{name}', $profileControllerClass.'@putSettings');
 
-		$this->delete('profile/settings/{name}', 'ProfileController@deleteSettings');
+		$this->delete('profile/settings/{name}', $profileControllerClass.'@deleteSettings');
 
-		$this->post('profile/read/{post_id}', 'ProfileController@postRead');
+		$this->post('profile/read/{post_id}', $profileControllerClass.'@postRead');
 
-		$this->delete('profile/read/{post_id}', 'ProfileController@deleteRead');
+		$this->delete('profile/read/{post_id}', $profileControllerClass.'@deleteRead');
 			
-		$this->get('profile/read', 'ProfileController@getLastRead');
+		$this->get('profile/read', $profileControllerClass.'@getLastRead');
 
-		$this->post('profile/rating/{post_id}', 'ProfileController@postRating')
+		$this->post('profile/rating/{post_id}', $profileControllerClass.'@postRating')
 			->args([
 					'rating' => ['rules' => 'required|numeric']
 				]);
 
-		$this->delete('profile/rating/{post_id}', 'ProfileController@deleteRating');
+		$this->delete('profile/rating/{post_id}', $profileControllerClass.'@deleteRating');
 			
-		$this->get('profile/rating/{post_id}', 'ProfileController@getRating');
+		$this->get('profile/rating/{post_id}', $profileControllerClass.'@getRating');
 
-		$this->get('profile/section/{type}/{id?}', 'ProfileController@getSection');
+		$this->get('profile/section/{type}/{id?}', $profileControllerClass.'@getSection');
 
-		$this->post('profile/section/{type}/{id?}', 'ProfileController@postSection');
+		$this->post('profile/section/{type}/{id?}', $profileControllerClass.'@postSection');
 
-		$this->put('profile/section/{type}/{id}', 'ProfileController@putSection');
+		$this->put('profile/section/{type}/{id}', $profileControllerClass.'@putSection');
 
-		$this->delete('profile/section/{type}/{id?}', 'ProfileController@deleteSection');
+		$this->delete('profile/section/{type}/{id?}', $profileControllerClass.'@deleteSection');
 
-		$this->get('profile/vote/{post_id}', 'ProfileController@getVote');
+		$this->get('profile/vote/{post_id}', $profileControllerClass.'@getVote');
 
-		$this->post('profile/vote/{post_id}', 'ProfileController@postVote')
+		$this->post('profile/vote/{post_id}', $profileControllerClass.'@postVote')
 			->args([
 					'vote' => ['rules' => 'required|numeric']
 				]);
 
-		$this->delete('profile/vote/{post_id}', 'ProfileController@deleteVote');
-
+		$this->delete('profile/vote/{post_id}', $profileControllerClass.'@deleteVote');
 	}
 
 	/**
@@ -467,6 +605,8 @@ class Router extends ServiceProvider {
 			$actions = [$actions];
 		}
 
+		$group = new RouteGroup();
+
 		foreach($actions as $action) {
 			// make sure this action is one we know how to process
 			if (empty(self::$resourcesActions[$action])) {
@@ -481,16 +621,8 @@ class Router extends ServiceProvider {
 				// the route is a formatted string; drop the idString into it
 				$name . sprintf($def['route'], $options['idString']),
 				// inside the callback, we create our controller instance and call the proper action
-				function() use ($action, $controllerClass) {
-					if (is_string($controllerClass) && !class_exists($controllerClass)) {
-						$controllerClass = $this->controllerClasspath . '\\' . $controllerClass;
-					}
-					$controller = new $controllerClass();
-					$callable = [$controller, $action];
-					if (!is_callable($callable)) {
-						return new \WP_Error('method_not_found', 'Method Not Found', [ 'status' => 404 ]);						
-					}
-					return call_user_func_array($callable, func_get_args());
+				function() use ($controllerClass, $action) {
+					return $this->invokeControllerAction($controllerClass, $action, func_get_args());
 				},
 				// pass-through options as rest config options
 				$options
@@ -499,9 +631,11 @@ class Router extends ServiceProvider {
 			if (!empty($def['args'])) {
 				$route->args($def['args']);
 			}
-		}
-	}
 
-	
+			$group[] = $route;
+		}
+
+		return $group;
+	}
 
 }

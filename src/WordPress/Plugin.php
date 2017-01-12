@@ -16,11 +16,16 @@ use Illuminate\Http\Request;
 use Illuminate\Http\Response;
 use Illuminate\Session\Middleware\StartSession;
 use Illuminate\Session\CookieSessionHandler;
+use FatPanda\Illuminate\Support\Exceptions\RegistersExceptionHandlers;
+use FatPanda\Illuminate\WordPress\Console\Kernel as WordPressConsoleKernel;
+use FatPanda\Illuminate\Support\Exceptions\Handler as WordPressExceptionHandler;
 
 /**
  * Baseclass for all WordPress plugins, extends a Laravel Container.
  */
 abstract class Plugin extends Container {
+
+  use RegistersExceptionHandlers;
 
   protected static $plugins;
 
@@ -74,8 +79,20 @@ abstract class Plugin extends Container {
     'encrypter' => 'registerEncrypterBindings',
     'composer' => 'registerComposerBindings',
     'FatPanda\Illuminate\WordPress\Http\Router' =>'registerRestRouter',
+    'Illuminate\Contracts\Validation\Factory' => 'registerValidatorBindings',
+    'validator' => 'registerValidatorBindings',
+    'translator' => 'registerTranslationBindings',
+    'cache' => 'registerCacheBindings',
+    'cache.store' => 'registerCacheBindings',
+    'Illuminate\Contracts\Cache\Factory' => 'registerCacheBindings',
+    'Illuminate\Contracts\Cache\Repository' => 'registerCacheBindings',
+    'Illuminate\Contracts\Encryption\Encrypter' => 'registerEncrypterBindings',
+    'Illuminate\Contracts\Events\Dispatcher' => 'registerEventBindings',
+    'queue' => 'registerQueueBindings',
+    'queue.connection' => 'registerQueueBindings',
+    'Illuminate\Contracts\Queue\Factory' => 'registerQueueBindings',
+    'Illuminate\Contracts\Queue\Queue' => 'registerQueueBindings',
     
-
     // 'auth' => 'registerAuthBindings',
     // 'auth.driver' => 'registerAuthBindings',
     // 'Illuminate\Contracts\Auth\Guard' => 'registerAuthBindings',
@@ -83,26 +100,15 @@ abstract class Plugin extends Container {
     // 'Illuminate\Contracts\Broadcasting\Broadcaster' => 'registerBroadcastingBindings',
     // 'Illuminate\Contracts\Broadcasting\Factory' => 'registerBroadcastingBindings',
     // 'Illuminate\Contracts\Bus\Dispatcher' => 'registerBusBindings',
-    // 'cache' => 'registerCacheBindings',
-    // 'cache.store' => 'registerCacheBindings',
-    // 'Illuminate\Contracts\Cache\Factory' => 'registerCacheBindings',
-    // 'Illuminate\Contracts\Cache\Repository' => 'registerCacheBindings',
-    // 'Illuminate\Contracts\Encryption\Encrypter' => 'registerEncrypterBindings',
-    // 'Illuminate\Contracts\Events\Dispatcher' => 'registerEventBindings',
     // 'hash' => 'registerHashBindings',
     // 'Illuminate\Contracts\Hashing\Hasher' => 'registerHashBindings',
     // 'log' => 'registerLogBindings',
     // 'Psr\Log\LoggerInterface' => 'registerLogBindings',
-    // 'queue' => 'registerQueueBindings',
-    // 'queue.connection' => 'registerQueueBindings',
-    // 'Illuminate\Contracts\Queue\Factory' => 'registerQueueBindings',
-    // 'Illuminate\Contracts\Queue\Queue' => 'registerQueueBindings',
     // 'Psr\Http\Message\ServerRequestInterface' => 'registerPsrRequestBindings',
     // 'Psr\Http\Message\ResponseInterface' => 'registerPsrResponseBindings',
-    // 'translator' => 'registerTranslationBindings',
     // 'url' => 'registerUrlGeneratorBindings',
-    // 'validator' => 'registerValidatorBindings',
-    // 'Illuminate\Contracts\Validation\Factory' => 'registerValidatorBindings',
+    
+    
 
   ];
 
@@ -128,6 +134,7 @@ abstract class Plugin extends Container {
 
     $this->mainFile = $mainFile;
     $this->basePath = dirname($mainFile);
+    $this->registerErrorHandling();
     $this->bootstrapContainer();
   }
 
@@ -197,7 +204,7 @@ abstract class Plugin extends Container {
       });
       // print out any cookies created by the session system
       foreach($this->response->headers->getCookies() as $cookie) {
-        header('Set-Cookie: '.$cookie);
+        @header('Set-Cookie: '.$cookie);
       }
       return $request;
     });
@@ -273,6 +280,66 @@ abstract class Plugin extends Container {
   }
 
   /**
+   * Register container bindings for the application.
+   *
+   * @return void
+   */
+  protected function registerCacheBindings()
+  {
+    $this->singleton('cache', function () {
+      return $this->loadComponent('cache', 'Illuminate\Cache\CacheServiceProvider');
+    });
+    $this->singleton('cache.store', function () {
+      return $this->loadComponent('cache', 'Illuminate\Cache\CacheServiceProvider', 'cache.store');
+    });
+  }
+
+  /**
+   * Register container bindings for the plugin.
+   *
+   * @return void
+   */
+  protected function registerValidatorBindings()
+  {
+    $this->singleton('validator', function () {
+      $this->register('Illuminate\Validation\ValidationServiceProvider');
+      return $this->make('validator');
+    });
+  }
+
+  /**
+   * Register container bindings for the plugin.
+   *
+   * @return void
+   */
+  protected function registerTranslationBindings()
+  {
+    $this->singleton('translator', function () {
+      $this->configure('app');
+
+      $this->instance('path.lang', $this->getLanguagePath());
+
+      $this->register('Illuminate\Translation\TranslationServiceProvider');
+
+      return $this->make('translator');
+    });
+  }
+
+  /**
+   * Get the path to the plugin's language files.
+   *
+   * @return string
+   */
+  protected function getLanguagePath()
+  {
+    if (is_dir($langPath = $this->basePath().'/resources/lang')) {
+      return $langPath;
+    } else {
+      return __DIR__.'/../resources/lang';
+    } 
+  }
+
+  /**
    * Register container bindings for the plugin.
    *
    * @return void
@@ -286,6 +353,21 @@ abstract class Plugin extends Container {
           'FatPanda\Illuminate\WordPress\Providers\Pagination\PaginationServiceProvider',
         ], 'db'
       );
+    });
+  }
+
+  /**
+   * Register container bindings for the application.
+   *
+   * @return void
+   */
+  protected function registerQueueBindings()
+  {
+    $this->singleton('queue', function () {
+      return $this->loadComponent('queue', 'Illuminate\Queue\QueueServiceProvider', 'queue');
+    });
+    $this->singleton('queue.connection', function () {
+      return $this->loadComponent('queue', 'Illuminate\Queue\QueueServiceProvider', 'queue.connection');
     });
   }
 
@@ -513,22 +595,21 @@ abstract class Plugin extends Container {
   {
     $this->instance( 'app', $this );
     $this->instance( 'path', $this->path() );
-
-    $this->registerContainerAliases();
-    $this->bindActionsAndFilters();
-
-    $this->register( \Illuminate\Session\SessionServiceProvider::class );
-    $this->register( \FatPanda\Illuminate\WordPress\Providers\Session\WordPressSessionServiceProvider::class );
-    $this->singleton( \Illuminate\Contracts\Console\Kernel::class, \FatPanda\Illuminate\WordPress\Console\Kernel::class ); 
-    $this->register( \FatPanda\Illuminate\WordPress\Providers\Scout\ScoutServiceProvider::class );
-
-    $this->singleton( \Illuminate\Contracts\Debug\ExceptionHandler::class, function() {
-      return new \FatPanda\Illuminate\Support\Exceptions\Handler($this);
-    });
-
     $this->configure( 'scout' );
     $this->configure( 'services' );
     $this->configure( 'session' );
+    $this->configure( 'mail' );
+
+    $this->registerContainerAliases();
+
+    $this->bindActionsAndFilters();
+
+    $this->register( \Illuminate\Mail\MailServiceProvider::class );
+    $this->register( \Illuminate\Session\SessionServiceProvider::class );
+    $this->register( \FatPanda\Illuminate\WordPress\Providers\Session\WordPressSessionServiceProvider::class );
+    $this->register( \FatPanda\Illuminate\WordPress\Providers\Scout\ScoutServiceProvider::class );
+    $this->singleton( \Illuminate\Contracts\Console\Kernel::class, WordPressConsoleKernel::class ); 
+    $this->singleton( \Illuminate\Contracts\Debug\ExceptionHandler::class, WordPressExceptionHandler::class );    
   }
 
   /**
@@ -683,11 +764,6 @@ abstract class Plugin extends Container {
     // get a list of all the methods on this class
     $methods = $this->reflection->getMethods(\ReflectionMethod::IS_PUBLIC);
 
-    // setup some internal event handlers
-    add_action('plugins_loaded', [ $this, 'finalOnPluginsLoaded' ], 9);
-    add_action('init', [ $this, 'finalOnInit' ], 9);
-    add_action('shutdown', [ $this, 'finalOnShutdown' ], 9);
-
     // look for candidates for actions or filter hooks
     foreach($methods as $method) {
       // skip activation/deactivation hooks (handled above)
@@ -714,9 +790,14 @@ abstract class Plugin extends Container {
       } else if ('filter' === strtolower(substr($method->getName(), 0, 6))) {
         $filter = trim(strtolower(preg_replace('/(?<!\ )[A-Z]/', '_$0', substr($method->getName(), 6))), '_');
         $parameterCount = $method->getNumberOfParameters();
-        add_action($filter, [ $this, $method->getName() ], $priority, $parameterCount);
+        add_filter($filter, [ $this, $method->getName() ], $priority, $parameterCount);
       }
     }
+
+    // setup some internal event handlers
+    add_action('plugins_loaded', [ $this, 'finalOnPluginsLoaded' ], 9);
+    add_action('init', [ $this, 'finalOnInit' ], 9);
+    add_action('shutdown', [ $this, 'finalOnShutdown' ], 9);
   }
 
   /**
@@ -820,9 +901,16 @@ abstract class Plugin extends Container {
   {
     if (is_string($provider) || is_class($provider)) {
       $implements = class_implements($provider);
+      
       if (isset($implements['FatPanda\Illuminate\WordPress\Concerns\CustomSchema'])) {
         $this->customSchema[] = $provider;
-        return;
+        return $this;
+      }
+
+      if (isset($implements['FatPanda\Illuminate\WordPress\Concerns\CanShortcode'])) {
+        // we have to do this right away
+        call_user_func_array($provider . '::register', [ $this ]);
+        return $this;
       }
     } 
 
@@ -831,7 +919,7 @@ abstract class Plugin extends Container {
     }
 
     if (array_key_exists($providerName = get_class($provider), $this->loadedProviders)) {
-      return;
+      return $this;
     }
 
     $this->loadedProviders[$providerName] = true;
@@ -843,6 +931,8 @@ abstract class Plugin extends Container {
     if (method_exists($provider, 'boot')) {
       return $this->call([$provider, 'boot']);
     }
+
+    return $this;
   }
 
   /**
@@ -937,7 +1027,7 @@ abstract class Plugin extends Container {
       }
     }
   }
-
+  
   protected function loadTextDomain()
   {
     load_plugin_textdomain( $this->textDomain, false, $this->getSlug() . rtrim($this->domainPath, '/') . '/' );
@@ -953,12 +1043,19 @@ abstract class Plugin extends Container {
       $router = new Router($this);
       $router->setNamespace($this->getRestNamespace());
       $router->setVersion($this->getRestVersion());
+      $router->setControllerClasspath($this->getNamespaceName() . '\\Http\\Controllers');
       // load the routes
       $plugin = $this;
       require $this->basePath('src/routes.php');
       
       return $router;
     });
+  }
+
+  protected final function getNamespaceName()
+  {
+    $reflection = new \ReflectionClass(get_called_class());
+    return $reflection->getNamespaceName();
   }
 
   function setRestNamespace($namespace)

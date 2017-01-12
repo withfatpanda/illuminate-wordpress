@@ -1,9 +1,9 @@
 <?php
 namespace FatPanda\Illuminate\WordPress\Http\Controllers;
 
-use FatPanda\Illuminate\WordPress\User;
-use FatPanda\Illuminate\WordPress\Post;
-use FatPanda\Illuminate\WordPress\ProfileSection;
+use FatPanda\Illuminate\WordPress\Models\User;
+use FatPanda\Illuminate\WordPress\Models\Post;
+use FatPanda\Illuminate\WordPress\Models\ProfileSection;
 
 class ProfileController extends Controller {
 

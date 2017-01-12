@@ -2,7 +2,6 @@
 namespace FatPanda\Illuminate\WordPress\Models;
 
 use Illuminate\Auth\Authenticatable;
-use Laravel\Lumen\Auth\Authorizable;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Contracts\Auth\Authenticatable as AuthenticatableContract;
 use Illuminate\Contracts\Auth\Access\Authorizable as AuthorizableContract;
@@ -12,7 +11,7 @@ class User extends Model implements AuthenticatableContract, AuthorizableContrac
 {   
     static $profileSettingMetaKeyPrefix = 'profile.';
 
-    use Authenticatable, Authorizable;
+    use Authenticatable;
 
     protected $primaryKey = 'ID';
 
@@ -168,6 +167,66 @@ class User extends Model implements AuthenticatableContract, AuthorizableContrac
         $meta_key = static::$profileSettingMetaKeyPrefix.$name;
         update_user_meta($this->id, $meta_key, $value);
         return $this->getProfileSettings($name);
+    }
+
+    static function makePrivateActionLink($user, $userMetaField = '_private', $flush = false, $length = 12)
+    {
+        $id = base64_encode($user->ID);
+        
+        $key = $flush ? false : get_user_meta($user->ID, $userMetaField, true);
+        if (!$key) {
+            $key = wp_generate_password($length);
+            update_user_meta($user->ID, $userMetaField, $key);
+        }
+
+        $time = time();
+        $nonce = md5($id.$key.$time);
+
+        $params = [ 
+            'i' => $id,
+            't' => $time,
+            'n' => $nonce
+        ];
+
+        $hash = base64_encode(json_encode($params));
+
+        return (object) [
+            'key' => $key,
+            'hash' => $hash
+        ];
+    }
+    
+    static function verifyPrivateActionHash($hash, $userMetaField = '_private')
+    {
+        $params = (array) json_decode(base64_decode($hash));
+
+        if ($params === false || empty($params)) {
+            // TODO: allow for login URL to be configurable
+            return false;
+        }
+
+        $user = get_user_by('ID', base64_decode($params['i']));
+        if (!$user) {
+            return false;
+        }
+        
+        // make sure that the nonce hasn't expired
+        if (time() - $params['t'] > ( 60 * 60 * 24 )) {
+            // if it's still there, make sure it's gone!
+            delete_user_meta($user->ID, $userMetaField);
+            return false;
+        }
+
+        if (!$key = get_user_meta($user->ID, $userMetaField, true)) {
+            return false;
+        }
+
+        // validate the nonce
+        if ($params['n'] !== md5($params['i'].$key.$params['t'])) {
+            return false;
+        }
+
+        return $user;
     }
 
     /**

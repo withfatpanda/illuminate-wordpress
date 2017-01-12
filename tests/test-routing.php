@@ -1,5 +1,6 @@
 <?php
 use FatPanda\Illuminate\WordPress\TestCase;
+use FatPanda\Illuminate\WordPress\Http\RewriteRule;
 
 /**
  * Test all routing features of the framework
@@ -8,6 +9,8 @@ class TestRouting extends TestCase {
 
 	function setUp()
 	{
+		RewriteRule::setDontExitOnEmptyResult(true);
+
 		parent::setUp();
 
 		$this->plugin = plugin('test-plugin');

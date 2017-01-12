@@ -1,7 +1,6 @@
 <?php
 namespace FatPanda\Illuminate\WordPress\Http;
 
-use Illuminate\Database\Eloquent\ModelNotFoundException;
 use FatPanda\Illuminate\Support\Exceptions\ValidationException;
 use Exception;
 use WP_REST_Response;
@@ -59,7 +58,7 @@ class Route extends Routable {
 
 		list($route, $vars) = Router::substituteUrlArgTokens($this->baseRoute);
 
-		register_rest_route("{$this->namespace}/{$this->version}", $route, $options);
+    register_rest_route("{$this->namespace}/{$this->version}", $route, $options);
 	}
 
 	function __get($name)
@@ -93,68 +92,27 @@ class Route extends Routable {
 			}
 		}
 
-		$args = [ $request, $this ];
+    $args = [ $request, $this ];
 	
 		if (!empty($validation_rules)) {
 			try {
-				ValidationException::assertValid($request->get_params(), $validation_rules, $validation_messages);
+				ValidationException::assertValid($this->router->validator, $request->get_params(), $validation_rules, $validation_messages);
 
 			} catch (Exception $e) {
-				// TODO: consider bubbling up to Plugin...
-
-				$response = static::buildErrorResponse($e);
+				$response = $this->router->buildErrorResponse($e);
 				return new WP_REST_Response($response, $response['data']['status']);
 			}
 		}
-				
-		try {
-			return call_user_func_array($this->callback, $args);
+
+    try {
+      return call_user_func_array($this->callback, $args);
+
 		} catch (Exception $e) {
-			$response = static::buildErrorResponse($e);
+      $response = $this->router->buildErrorResponse($e);
 			return new WP_REST_Response($response, $response['data']['status']);
+
 		}
 
 	}
-
-	private static function buildErrorResponse(Exception $e)
-  {
-		$response = [ 
-      'type' => get_class($e),
-      'code' => $e->getCode(),
-      'message' => $e->getMessage(),
-      'data' => [
-        'status' => 500
-      ]
-    ];
-
-    if ($e instanceof ModelNotFoundException) {
-      $response['data']['status'] = 404;
-    }
-
-    if ($e instanceof HttpException) {
-      $response['data']['status'] = $e->getStatusCode();
-    }
-
-    if ($e instanceof \FatPanda\Illuminate\Support\Exceptions\ValidationException) {
-      $response['data']['errors'] = $e->messages();
-    }
-
-    if (static::isDebugMode()) {
-      $response['line'] = $e->getLine();
-      $response['file'] = $e->getFile();
-      $response['trace'] = $e->getTraceAsString();
-    }
-
-    return $response;
-  }
-
-	static public function isDebugMode()
-  {
-    if (current_user_can('administrator')) {
-    	return true;
-    } else {
-      return constant('WP_DEBUG') && WP_DEBUG;
-    }
-  }
 
 }

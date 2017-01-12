@@ -3,6 +3,7 @@ namespace FatPanda\Illuminate\WordPress\Models;
 
 use FatPanda\Illuminate\WordPress\Plugin;
 use Illuminate\Database\Eloquent\Builder;
+use Laravel\Scout\Searchable;
 use Illuminate\Database\Eloquent\Model as Eloquent;
 use FatPanda\Illuminate\WordPress\Concerns\CustomSchema;
 use FatPanda\Illuminate\WordPress\Concerns\CustomizablePostType;
@@ -13,7 +14,7 @@ use FatPanda\Illuminate\WordPress\Models\PostMeta;
 
 class Post extends Eloquent implements CustomSchema {
 
-	use CustomizablePostType;
+	use CustomizablePostType, Searchable;
 
 	protected $table = 'posts';
 
@@ -92,6 +93,8 @@ class Post extends Eloquent implements CustomSchema {
 	protected $show_in_rest = false;
 
 	protected $dirtyMetaData = [];	
+
+	protected $rewrite = null;
 
 	static function boot()
 	{
@@ -176,10 +179,18 @@ class Post extends Eloquent implements CustomSchema {
 	public function newQuery($excludeDeleted = true)
 	{	
 		$builder = parent::newQuery($excludeDeleted);
+
 		if ('post' !== ( $post_type = $this->getPostType() )) {
 			$builder->where('post_type', $post_type);
 		}
+
 		return $builder;
+	}
+
+
+	public function scopeWith($query, $field, $operation = '=', $value = null)
+	{
+		
 	}
 
 	/**
@@ -286,7 +297,7 @@ class Post extends Eloquent implements CustomSchema {
 	function getGuidAttribute()
 	{
 		return (object) [
-			'rendered' => site_url('?'.esc_attr(
+			'rendered' => home_url('?'.esc_attr(
 				http_build_query([
 					'p' => $this->id, 
 					'post_type' => $this->getPostType()
@@ -308,22 +319,138 @@ class Post extends Eloquent implements CustomSchema {
 		$this->attributes['post_excerpt'] = $value;
 	}
 
-	/**
-	 * @return Builder
-	 */
 	static function getPostByIdOrName($value)
 	{
 		if ($value instanceof static) {
 			return $value;
 		}
-		return static::whereRaw('ID = ? OR post_name = ?', [ $value, $value ]);
+
+		return static::whereRaw('ID = ? OR post_name = ?', [ $value, $value ])
+			->firstOrFail();
 	}
 
-	function reactions()
+	static function countVotes($post_id)
 	{
+		$post = static::getPostByIdOrName($post_id);
 
+		return \Cache::tags(['posts', 'post-votes'])->rememberForever("counts-{$post->id}", function() use ($post) {
+		
+			$tallies = \DB::table('posts_votes')
+				->selectRaw('count(*) as vote_count, vote')
+				->where('post_id', $post->id)
+				->groupBy('vote')
+				->get();
+
+			$results = [
+				'votes' => [
+					'-1' => 0,
+					'0' => 0,
+					'1' => 0
+				]
+			];
+
+			foreach($tallies as $tally) {
+				$results['votes'][$tally->vote] = $tally->vote_count;
+			}
+
+			$results['score'] = (-1 * $results['votes']['-1']) + $results['votes']['1'];
+
+			return $results;
+
+		});
 	}
 
+	static function getVote($post_id, User $user = null)
+	{
+		$post = static::getPostByIdOrName($post_id);
+		
+		if (empty($user)) {
+			if (!$user = User::current()) {
+				return false;
+			}
+		}
+
+		return \Cache::tags(['posts', 'post-votes'])->rememberForever("get-{$post->id}", function() use ($post, $user) {
+		
+			$vote = \DB::table('posts_votes')
+				->where([
+					'post_id' => $post->id, 
+					'user_id' => $user->id
+				])
+				->first();
+
+			if (!$vote) {
+				$vote = (object) [
+					'id' => null,
+					'vote' => false,
+					'post_id' => $post->id,
+					'user_id' => (int) $user->id,
+					'created_at' => false,
+					'updated_at' => false
+				];
+			}
+
+			$vote->global = static::countVotes($post);
+
+			return $vote;
+
+		});
+	}
+
+	static function setVote($post_id, $vote, User $user = null)
+	{
+		$post = static::getPostByIdOrName($post_id);
+		if (empty($user)) {
+			if (!$user = User::current()) {
+				return false;
+			}
+		}
+		return \DB::transaction(function() use ($post, $vote, $user) {
+			static::deleteVote($post->id, $user);
+			
+			$now = \Carbon\Carbon::now();
+
+			$vote = (int) $vote;
+
+			if ($vote !== -1 && $vote !== 0 && $vote !== 1) {
+				throw new \Exception("Invalid vote value: must be one of -1, 0, or 1");
+			}
+
+			\DB::table('posts_votes')->insert([
+				'post_id' => $post->id,
+				'user_id' => $user->id,
+				'vote' => $vote,
+				'created_at' => $now,
+				'updated_at' => $now,
+			]);
+
+			\Cache::tags(['posts', 'post-votes'])->forget("get-{$post->id}");
+			\Cache::tags(['posts', 'post-votes'])->forget("counts-{$post->id}");
+
+			return static::getVote($post->id, $user);
+		});
+	}
+
+	static function deleteVote($post_id, User $user = null) {
+		$post = static::getPostByIdOrName($post_id);
+		
+		if (empty($user)) {
+			if (!$user = User::current()) {
+				return false;
+			}
+		}
+
+		$result = \DB::table('posts_votes')->where([
+			'post_id' => $post->id,
+			'user_id' => $user->id
+		])->limit(1)->delete();
+
+		\Cache::tags(['posts', 'post-votes'])->forget("get-{$post->id}");
+		\Cache::tags(['posts', 'post-votes'])->forget("counts-{$post->id}");
+
+		return $result;
+	}
+	
 	function freshTimestamp()
 	{
 		$carbon = new Carbon;
@@ -521,10 +648,22 @@ class Post extends Eloquent implements CustomSchema {
 		return $array;
 	}
 
-
 	protected function getTaxonomies()
 	{
 		return $this->taxonomies;
+	}
+
+	public function searchableAs()
+	{
+		return $this->getPostType().'_index';
+	}
+
+	public function toSearchableArray()
+	{
+		$array = $this->toArray();
+		$array = apply_filters('post_'.$this->getPostType().'_searchable', $array, $this->id, $this);
+		$array = apply_filters('post_searchable', $array, $this->id, $this);
+		return $array;
 	}
 
 	public function buildConfig(Plugin $plugin) 
@@ -537,6 +676,7 @@ class Post extends Eloquent implements CustomSchema {
 
 		$called = $this->getCalled();
 		$plural = $this->getCalled(2);
+
 
 		$labels = array(
 			'name'                  => _x( $plural, 'Post Type General Name', $text_domain ),
@@ -585,6 +725,7 @@ class Post extends Eloquent implements CustomSchema {
 			'publicly_queryable'    => is_null($this->publicly_queryable) ? $this->public : $this->publicly_queryable,
 			'capability_type'       => $this->capability_type,
 			'show_in_rest'					=> $this->show_in_rest,
+			'rewrite' 							=> $this->rewrite,
 		);
 
 		return $args;

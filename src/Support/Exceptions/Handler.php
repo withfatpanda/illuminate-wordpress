@@ -8,6 +8,8 @@ use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Symfony\Component\HttpKernel\Exception\HttpException;
 use Laravel\Lumen\Exceptions\Handler as ExceptionHandler;
 use Illuminate\Container\Container;
+use FatPanda\Illuminate\WordPress\Http\Router;
+use Illuminate\Http\Response;
 
 /**
  * Renders Exceptions as JSON
@@ -54,46 +56,11 @@ class Handler extends LumenHandler
             $logger = $this->plugin->make('Psr\Log\LoggerInterface');
         } catch (Exception $ex) {
             throw $e; // throw the original exception
+        } finally {
+            $this->renderException($e);
         }
 
         $logger->error($e);
-    }
-
-    static function buildResponseData(Exception $e)
-    {
-        $response = [ 
-            'type' => get_class($e),
-            'code' => $e->getCode(),
-            'message' => $e->getMessage(),
-            'data' => [
-                'status' => 500
-            ]
-        ];
-
-        if ($e instanceof ModelNotFoundException) {
-            $response['data']['status'] = 404;
-        }
-
-        if ($e instanceof HttpException) {
-            $response['data']['status'] = $e->getStatusCode();
-        }
-
-        if ($e instanceof \FatPanda\Illuminate\Support\Exceptions\ValidationException) {
-            $response['data']['errors'] = $e->messages();
-        }
-
-        if (static::isDebugMode()) {
-            $response['line'] = $e->getLine();
-            $response['file'] = $e->getFile();
-            $response['trace'] = $e->getTraceAsString();
-        }
-
-        return $response;
-    }
-
-    static public function isDebugMode()
-    {
-        return ( defined('WP_DEBUG') && WP_DEBUG ) || $this->plugin->config('app.debug') || current_user_can('administrator');
     }
 
     /**
@@ -105,8 +72,21 @@ class Handler extends LumenHandler
      */
     public function render($request, Exception $e)
     {
-        // TODO: use constant REST_REQUEST to detect a REST_REQUEST and respond accordingly
-        $response = static::buildResponseData($e);
-        return $this->plugin->response->json($response, $response['data']['status']);
+        return $this->renderException($e);
+    }
+
+    protected function renderException(Exception $e)
+    {
+        $error = $this->plugin->router->buildErrorResponse($e);
+        
+        if (defined('REST_REQUEST')) {
+            status_header(500);
+            header('Content-Type: application/json');
+            echo json_encode($error);
+            exit;
+
+        } else {
+            return new Response($error, $error['data']['status']);
+        }
     }
 }

@@ -4,6 +4,16 @@ namespace FatPanda\Illuminate\WordPress\Http;
 class RewriteRule extends Routable {
 
 	/**
+	 * @var bool Debugging var, for running unit tests
+	 */
+	protected static $dontExitOnEmptyResult = false;
+
+	static function setDontExitOnEmptyResult($bool)
+	{
+		self::$dontExitOnEmptyResult = (bool) $bool;
+	}
+
+	/**
 	 * @var string
 	 */
 	protected $route;
@@ -94,6 +104,13 @@ class RewriteRule extends Routable {
 					if (is_array($result)) {
 						if (!empty($result['query'])) {
 							$wp->query_vars = $result['query'];
+						}
+					}
+
+					if (empty($result)) {
+						do_action('shutdown');
+						if (!self::$dontExitOnEmptyResult) {
+							exit;
 						}
 					}
 				}

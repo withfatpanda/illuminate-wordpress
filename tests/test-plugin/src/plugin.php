@@ -24,7 +24,7 @@ class Plugin extends \FatPanda\Illuminate\WordPress\Plugin {
 	 */
 	function onPluginsLoaded()
 	{
-		$this->register( \FatPanda\WordPress\Models\Widget::class );
+		$this->register( Models\Widget::class );
 	}
 
 	/**

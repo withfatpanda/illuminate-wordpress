@@ -1,5 +1,18 @@
 # CHANGELOG
 
+## v1.3.2
+
+* Add package illuminate/mail
+* Add proper JSON-encoded output to our custom Exception Handler
+* Add support for Exception Handling registration to base Plugin
+* Remove old pattern of loading Validator translation from plugin project, favoring instead loading the default from the validation package
+* Rough-in pattern for customizable Comment Types
+* New Shortcode baseclass: for creating and registering object-oriented shortcodes
+* New FieldGroup baseclass: for creating and registering object-oriented ACF field groups (need to spec fluent builder API)
+* Add support for custom rewrite rules to Post class
+* Add API to base User model for creating and validating stored, expiring private links
+* Fix bug in Router::api and Router::resource—wasn't returning RouteGroup
+
 ## v1.3.1
 
 * Remove incomplete test case
