@@ -1,14 +1,72 @@
 <?php
 namespace FatPanda\Illuminate\WordPress\Models;
 
+use FatPanda\Illuminate\WordPress\Plugin;
 use Illuminate\Database\Eloquent\Model as Eloquent;
 use Illuminate\Support\Facades\Validator;
 use FatPanda\Illuminate\Support\Exceptions\ValidationException;
 use FatPanda\Illuminate\WordPress\Concerns\ProfileSectionContract;
+use FatPanda\Illuminate\WordPress\Concerns\CanBeSavedToProfile;
 
 class ProfileSection extends Eloquent implements ProfileSectionContract {
 
 	use CanBeSavedToProfile;
+
+	/**
+	 * Create a profile section of the given type, and associate it with the
+	 * given Plugin
+	 * @param Plugin
+	 * @param String A classname of some class that implements ProfileSectionContract
+	 * @return PluginSectionContract implementation
+	 * @throws Exception If given class does not implement ProfileSectionContract
+	 */
+	static function factory(Plugin $plugin, $type)
+	{
+		$plugin->validator->extend('can_edit', function($attribute, $value, $parameters, $validator) {
+			if (empty($value)) {
+				return false;
+			}
+
+			$current_user = wp_get_current_user();
+			if (empty($current_user)) {
+				return false;
+			}
+
+			if ($attribute === 'user_id') {
+				$target_user = get_user_by('ID', $value);
+			} else {
+				$target_user = get_user_by($attribute, $value);
+			}
+
+			if ($current_user->ID === $target_user->ID) {
+				return true;
+			} else if ($current_user->can('administrator')) {
+				return true;
+			} else {
+				return false;
+			}
+		});
+
+		if (empty($type)) {
+			throw new \Exception("Missing required argument: type");
+		}
+
+		$type = urldecode($type);
+
+		if (class_exists($type)) {
+			$implements = class_implements($type);
+			if (!isset($implements['FatPanda\Illuminate\WordPress\Concerns\ProfileSectionContract'])) {
+				throw new \Exception("Profile Section type {$type} does not implement ProfileSectionContract");
+			}
+			$section = new $type();
+			$section->setPlugin($plugin);
+			return $section;
+		
+		} else {
+			return new SimpleProfileSection($type);
+
+		}
+	}
 
 	function user()
 	{
@@ -56,7 +114,7 @@ class ProfileSection extends Eloquent implements ProfileSectionContract {
 			$data['user_id'] = get_current_user_id();
 		}
 
-		ValidationException::assertValid($data, [ 'user_id' => 'required|can_edit' ]);
+		ValidationException::assertValid($this->getPlugin()->validator, $data, [ 'user_id' => 'required|can_edit' ]);
 
 		if (!empty($data['id'])) {
 			return [ static::findOrfail($data['id']) ];
@@ -71,7 +129,7 @@ class ProfileSection extends Eloquent implements ProfileSectionContract {
 			$data['user_id'] = get_current_user_id();
 		}
 
-		ValidationException::assertValid($data, [ 'user_id' => 'required|can_edit' ]);
+		ValidationException::assertValid($this->getPlugin()->validator, $data, [ 'user_id' => 'required|can_edit' ]);
 
 		if (!empty($data['id'])) {
 			return static::where('id', $data['id'])->delete();
@@ -80,51 +138,6 @@ class ProfileSection extends Eloquent implements ProfileSectionContract {
 		}
 	}
 
-	static function factory($type)
-	{
-		Validator::extend('can_edit', function($attribute, $value, $parameters, $validator) {
-			if (empty($value)) {
-				return false;
-			}
-
-			$current_user = wp_get_current_user();
-			if (empty($current_user)) {
-				return false;
-			}
-
-			if ($attribute === 'user_id') {
-				$target_user = get_user_by('ID', $value);
-			} else {
-				$target_user = get_user_by($attribute, $value);
-			}
-
-			if ($current_user->ID === $target_user->ID) {
-				return true;
-			} else if ($current_user->can('administrator')) {
-				return true;
-			} else {
-				return false;
-			}
-		});
-
-		if (empty($type)) {
-			throw new \Exception("Missing required argument: type");
-		}
-
-		$type = urldecode($type);
-
-		if (class_exists($type)) {
-			$implements = class_implements($type);
-			if (!isset($implements['FatPanda\Illuminate\WordPress\Models\ProfileSectionContract'])) {
-				throw new \Exception("Profile Section type {$type} does not implement ProfileSectionContract");
-			}
-			return new $type;
-		
-		} else {
-			return new SimpleProfileSection($type);
-
-		}
-	}
 
 	function toArray()
 	{

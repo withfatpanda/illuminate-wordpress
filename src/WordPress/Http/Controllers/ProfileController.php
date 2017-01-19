@@ -1,6 +1,7 @@
 <?php
 namespace FatPanda\Illuminate\WordPress\Http\Controllers;
 
+use FatPanda\Illuminate\WordPress\Plugin;	
 use FatPanda\Illuminate\WordPress\Models\User;
 use FatPanda\Illuminate\WordPress\Models\Post;
 use FatPanda\Illuminate\WordPress\Models\ProfileSection;
@@ -37,26 +38,26 @@ class ProfileController extends Controller {
 		return Post::deleteVote($request['post_id']);
 	}
 
-	function getSection($request)
+	function getSection($request, Plugin $plugin)
 	{
-		$section = ProfileSection::factory($request['type']);
+		$section = ProfileSection::factory($plugin, $request['type']);
 		return $section->getFromProfile($request->get_params());	
 	}
 
-	function postSection($request)
+	function postSection($request, Plugin $plugin)
 	{
-		$section = ProfileSection::factory($request['type']);
+		$section = ProfileSection::factory($plugin, $request['type']);
 		return $section->saveToProfile($request->get_params());
 	}
 
-	function putSection($request)
+	function putSection($request, Plugin $plugin)
 	{
-		return $this->postSection($request);
+		return $this->postSection($request, $plugin);
 	}
 
-	function deleteSection($request)
+	function deleteSection($request, Plugin $plugin)
 	{
-		$section = ProfileSection::factory($request['type']);
+		$section = ProfileSection::factory($plugin, $request['type']);
 		return $section->deleteFromProfile($request->get_params());
 	}
 

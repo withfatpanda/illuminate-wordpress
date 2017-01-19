@@ -1,5 +1,9 @@
 # CHANGELOG
 
+## v1.3.8
+
+* Fix the Profile API
+
 ## v1.3.7
 
 * Always load Gravatar via HTTPs

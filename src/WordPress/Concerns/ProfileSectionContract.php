@@ -1,6 +1,7 @@
 <?php
 namespace FatPanda\Illuminate\WordPress\Concerns;
 
+use FatPanda\Illuminate\WordPress\Plugin;
 use FatPanda\Illuminate\Support\Exceptions\ValidationException;
 
 interface ProfileSectionContract {
@@ -41,5 +42,19 @@ interface ProfileSectionContract {
 	 * custom validation error messages.
 	 */
 	function messages($data);
+
+	/**
+	 * Allow for making a ProfileSection aware of the plugin that's
+	 * implementing it.
+	 * @param Plugin
+	 */
+	function setPlugin(Plugin $plugin);
+
+	/**
+	 * Accessor for the plugin instance associated with this section
+	 * @return Plugin
+	 */
+	function getPlugin();
+
 
 }

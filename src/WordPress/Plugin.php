@@ -739,6 +739,7 @@ abstract class Plugin extends Container {
       'Illuminate\Contracts\Console\Kernel' => 'artisan',
       'artisan' => 'Illuminate\Contracts\Console\Kernel',
       'Laravel\Scout\Contracts\Factory' => 'scout',
+      'input' => 'request'
     ];
   }
 

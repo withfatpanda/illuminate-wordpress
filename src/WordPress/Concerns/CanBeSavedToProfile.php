@@ -1,9 +1,22 @@
 <?php
 namespace FatPanda\Illuminate\WordPress\Concerns;
 
+use FatPanda\Illuminate\WordPress\Plugin;
 use FatPanda\Illuminate\Support\Exceptions\ValidationException;
 
 trait CanBeSavedToProfile {
+
+	protected $plugin;
+
+	function setPlugin(Plugin $plugin)
+	{
+		$this->plugin = $plugin;
+	}
+
+	function getPlugin()
+	{
+		return $this->plugin;
+	}
 
 	function getFromProfile($data)
 	{
@@ -11,7 +24,7 @@ trait CanBeSavedToProfile {
 			$data['user_id'] = get_current_user_id();
 		}
 
-		ValidationException::assertValid($data, [ 'user_id' => 'required|can_edit' ]);
+		ValidationException::assertValid($this->getPlugin()->validator, $data, [ 'user_id' => 'required|can_edit' ]);
 
 		$meta_type = $this->getMetaType($data);
 
@@ -102,7 +115,7 @@ trait CanBeSavedToProfile {
 
 	function validate($data, $rules, $messages)
 	{
-		ValidationException::assertValid($data, $rules, $messages);
+		ValidationException::assertValid($this->getPlugin()->validator, $data, $rules, $messages);
 	}
 
 	function rules($data)
