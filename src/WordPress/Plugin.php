@@ -42,6 +42,8 @@ abstract class Plugin extends Container {
    */
   protected $customSchema = [];
 
+  protected $cliCommandName;
+
   protected $restNamespace;
 
   protected $restVersion;
@@ -973,6 +975,10 @@ abstract class Plugin extends Container {
   final function finalOnInit()
   {
     $this->registerCustomSchema(); 
+
+    // load core commands
+    
+
     $this->registerArtisanCommand();  
   }
 
@@ -1003,7 +1009,16 @@ abstract class Plugin extends Container {
 
   protected function getCLICommandName()
   {
-    return basename(dirname($this->mainFile));
+    if (empty($this->cliCommandName)) {
+      $this->cliCommandName = basename(dirname($this->mainFile));
+    }
+    return $this->cliCommandName;
+  }
+
+  function setCLICommandName($name)
+  {
+    $this->cliCommandName = $name;
+    return $this;
   }
 
   protected function bindActivationAndDeactivationHooks()

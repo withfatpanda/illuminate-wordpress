@@ -1,5 +1,9 @@
 # CHANGELOG
 
+## v1.3.9
+
+* Add Plugin::setCLICommand for modifying default command namespace
+
 ## v1.3.8
 
 * Fix the Profile API
