@@ -103,6 +103,7 @@ abstract class Plugin extends Container {
     'Illuminate\Contracts\Queue\Queue' => 'registerQueueBindings',
     'log' => 'registerLogBindings',
     'Psr\Log\LoggerInterface' => 'registerLogBindings',
+    'url' => 'registerUrlGeneratorBindings',
     
     // 'auth' => 'registerAuthBindings',
     // 'auth.driver' => 'registerAuthBindings',
@@ -115,7 +116,6 @@ abstract class Plugin extends Container {
     // 'Illuminate\Contracts\Hashing\Hasher' => 'registerHashBindings',
     // 'Psr\Http\Message\ServerRequestInterface' => 'registerPsrRequestBindings',
     // 'Psr\Http\Message\ResponseInterface' => 'registerPsrResponseBindings',
-    // 'url' => 'registerUrlGeneratorBindings',
     
     
 
@@ -292,6 +292,18 @@ abstract class Plugin extends Container {
   public function version()
   {
       return $this->name . ' (' . $this->version . ')';
+  }
+
+  /**
+   * Register container bindings for the application.
+   *
+   * @return void
+   */
+  protected function registerUrlGeneratorBindings()
+  {
+    $this->singleton('url', function () {
+      return new Http\UrlGenerator($this);
+    });
   }
 
   /**

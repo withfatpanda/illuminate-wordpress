@@ -1,5 +1,9 @@
 # CHANGELOG
 
+## v1.3.12
+
+* Implement super basic UrlGenerator; still need to implement some of the contract, but it's enough for now just to have URL::current(), URL::to(), and URL::secure()
+
 ## v1.3.11
 
 * Fix travis CI by using vendor-loaded phpunit instead of global
