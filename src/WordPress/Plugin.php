@@ -3,11 +3,8 @@ namespace FatPanda\Illuminate\WordPress;
 
 use Illuminate\Support\Str;
 use Illuminate\Support\Arr;
-use FatPanda\Illuminate\WordPress\Http\Router;
 use Illuminate\Container\Container;
 use Illuminate\Support\Composer;
-use FatPanda\Illuminate\WordPress\PostType;
-use FatPanda\Illuminate\WordPress\Taxonomy;
 use Illuminate\Support\ServiceProvider;
 use Illuminate\Config\Repository as ConfigRepository;
 use Illuminate\Filesystem\Filesystem;
@@ -16,9 +13,17 @@ use Illuminate\Http\Request;
 use Illuminate\Http\Response;
 use Illuminate\Session\Middleware\StartSession;
 use Illuminate\Session\CookieSessionHandler;
-use FatPanda\Illuminate\Support\Exceptions\RegistersExceptionHandlers;
-use FatPanda\Illuminate\WordPress\Console\Kernel as WordPressConsoleKernel;
+
 use FatPanda\Illuminate\Support\Exceptions\Handler as WordPressExceptionHandler;
+use FatPanda\Illuminate\Support\Exceptions\RegistersExceptionHandlers;
+use FatPanda\Illuminate\WordPress\PostType;
+use FatPanda\Illuminate\WordPress\Taxonomy;
+use FatPanda\Illuminate\WordPress\Console\Kernel as WordPressConsoleKernel;
+use FatPanda\Illuminate\WordPress\Http\Router;
+
+use Monolog\Logger;
+use Monolog\Handler\StreamHandler;
+use Monolog\Formatter\LineFormatter;
 
 /**
  * Baseclass for all WordPress plugins, extends a Laravel Container.
@@ -62,6 +67,8 @@ abstract class Plugin extends Container {
    */
   protected $ranServiceBinders = [];
 
+  protected $monologConfigurator;
+
   /**
    * The available container bindings and their respective load methods.
    *
@@ -94,6 +101,8 @@ abstract class Plugin extends Container {
     'queue.connection' => 'registerQueueBindings',
     'Illuminate\Contracts\Queue\Factory' => 'registerQueueBindings',
     'Illuminate\Contracts\Queue\Queue' => 'registerQueueBindings',
+    'log' => 'registerLogBindings',
+    'Psr\Log\LoggerInterface' => 'registerLogBindings',
     
     // 'auth' => 'registerAuthBindings',
     // 'auth.driver' => 'registerAuthBindings',
@@ -104,8 +113,6 @@ abstract class Plugin extends Container {
     // 'Illuminate\Contracts\Bus\Dispatcher' => 'registerBusBindings',
     // 'hash' => 'registerHashBindings',
     // 'Illuminate\Contracts\Hashing\Hasher' => 'registerHashBindings',
-    // 'log' => 'registerLogBindings',
-    // 'Psr\Log\LoggerInterface' => 'registerLogBindings',
     // 'Psr\Http\Message\ServerRequestInterface' => 'registerPsrRequestBindings',
     // 'Psr\Http\Message\ResponseInterface' => 'registerPsrResponseBindings',
     // 'url' => 'registerUrlGeneratorBindings',
@@ -186,6 +193,48 @@ abstract class Plugin extends Container {
   }
 
   /**
+   * Register container bindings for the application.
+   *
+   * @return void
+   */
+  protected function registerLogBindings()
+  {
+    $this->singleton('Psr\Log\LoggerInterface', function () {
+      $name = Str::slug($this->getNamespaceName());
+      if ($this->monologConfigurator) {
+        return call_user_func($this->monologConfigurator, new Logger($name));
+      } else {
+        return new Logger($name, [$this->getMonologHandler()]);
+      }
+    });
+  }
+
+  /**
+   * Define a callback to be used to configure Monolog.
+   *
+   * @param  callable  $callback
+   * @return $this
+   */
+  public function configureMonologUsing(callable $callback)
+  {
+    $this->monologConfigurator = $callback;
+
+    return $this;
+  }
+
+  /**
+   * Get the Monolog handler for the application.
+   *
+   * @return \Monolog\Handler\AbstractHandler
+   */
+  protected function getMonologHandler()
+  {
+    $name = Str::slug($this->getNamespaceName());
+    return (new StreamHandler($this->storagePath("logs/{$name}.log"), Logger::DEBUG))
+      ->setFormatter(new LineFormatter(null, null, true, true));
+  }
+
+  /**
    * Register container bindings for the plugin.
    *
    * @return void
@@ -218,12 +267,17 @@ abstract class Plugin extends Container {
    * @param  bool  $aliases
    * @return void
    */
-  public function prepareForConsoleCommand($aliases = true)
+  public function prepareForConsoleCommand(WordPressConsoleKernel $console, $aliases = true)
   {
     // $this->make('cache');
     // $this->make('queue');
 
     $this->configure('database');
+
+    $console->setCommands(array_merge($this->commands, [
+      Console\Commands\ConsoleMakeCommand::class,
+      Console\Commands\CustomPostTypeMakeCommand::class
+    ]));
 
     $this->register('Illuminate\Database\MigrationServiceProvider');
     $this->register('Illuminate\Database\SeedServiceProvider');
@@ -608,8 +662,8 @@ abstract class Plugin extends Container {
 
     $this->register( \Illuminate\Mail\MailServiceProvider::class );
     $this->register( \Illuminate\Session\SessionServiceProvider::class );
-    $this->register( \FatPanda\Illuminate\WordPress\Providers\Session\WordPressSessionServiceProvider::class );
-    $this->register( \FatPanda\Illuminate\WordPress\Providers\Scout\ScoutServiceProvider::class );
+    $this->register( Providers\Session\WordPressSessionServiceProvider::class );
+    $this->register( Providers\Scout\ScoutServiceProvider::class );
     $this->singleton( \Illuminate\Contracts\Console\Kernel::class, WordPressConsoleKernel::class ); 
     $this->singleton( \Illuminate\Contracts\Debug\ExceptionHandler::class, WordPressExceptionHandler::class );    
   }
@@ -668,14 +722,14 @@ abstract class Plugin extends Container {
   }
 
   /**
-   * Get the storage path for the plugin.
+   * Get the storage path for the plugin
    *
    * @param  string|null  $path
    * @return string
    */
   public function storagePath($path = null)
   {
-    return WP_CONTENT_DIR . '/storage/' . Str::slug($this->getNamespaceName()) . '/' . ( $path ? '/' . $path : $path );
+    return  WP_CONTENT_DIR . DIRECTORY_SEPARATOR . 'storage' . DIRECTORY_SEPARATOR . Str::slug($this->getNamespaceName()) . DIRECTORY_SEPARATOR . ( $path ? DIRECTORY_SEPARATOR . $path : $path );
   }
 
   /**
@@ -834,6 +888,14 @@ abstract class Plugin extends Container {
    */
   final function finalOnPluginsLoaded()
   {
+    // setup easy to access git revision number
+    if (file_exists($revFilePath = ABSPATH.'../../.rev')) {
+      $rev = array_map('trim', explode(' ', file_get_contents($revFilePath)));
+      $this->config->set('.rev', $rev[0]);
+    } else {
+      $this->config->set('.rev', 'dev');
+    }
+
     // if we don't have the get_plugin_data() function, load it
     if (!function_exists('get_plugin_data')) {
       require_once ABSPATH.'wp-admin/includes/plugin.php';
@@ -994,16 +1056,19 @@ abstract class Plugin extends Container {
     /**
      * Run Laravel Artisan for this plugin
      */
-    \WP_CLI::add_command($this->getCLICommandName(), function($args) {
-      
-      $this->artisan->call(array_shift($args), array_reduce($args, function($result, $arg) {
-        @list($name, $value) = explode('=', $arg);
-        $result[$name] = $value ? $value : 1;
-        return $result;
-      }, []));
+    \WP_CLI::add_command($this->getCLICommandName(), function() {
+      $args = [];
 
-      \WP_CLI::log($this->artisan->output());
+      // rebuild args, because WP_CLI does stuff to it...
+      if (!empty($_SERVER['argv'])) {
+        $args = array_slice($_SERVER['argv'], 2);
+        array_unshift($args, $_SERVER['argv'][0]);
+      }
 
+      $this->artisan->handle(
+        new \Symfony\Component\Console\Input\ArgvInput($args),
+        new \Symfony\Component\Console\Output\ConsoleOutput
+      );
     });
   }
 
@@ -1069,6 +1134,11 @@ abstract class Plugin extends Container {
       
       return $router;
     });
+  }
+
+  function getNamespace()
+  {
+    return $this->getNamespaceName();
   }
 
   protected final function getNamespaceName()

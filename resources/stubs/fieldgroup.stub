@@ -1,0 +1,10 @@
+<?php
+namespace DummyNamespace;
+
+use FatPanda\Illuminate\WordPress\Models\FieldGroup;
+
+class DummyClass extends FieldGroup {
+
+  protected $config = [];
+
+}

@@ -10,12 +10,16 @@ use Laravel\Lumen\Exceptions\Handler as ExceptionHandler;
 use Illuminate\Container\Container;
 use FatPanda\Illuminate\WordPress\Http\Router;
 use Illuminate\Http\Response;
+use FatPanda\Illuminate\Support\Concerns\BuildsErrorResponses;
+
 
 /**
  * Renders Exceptions as JSON
  */
 class Handler extends LumenHandler
 {
+    use BuildsErrorResponses;
+
     /**
      * A reference to the Plugin that utilizes this handler.
      */
@@ -53,14 +57,18 @@ class Handler extends LumenHandler
         }
 
         try {
-            $logger = $this->plugin->make('Psr\Log\LoggerInterface');
+            if ($this->plugin->bound('bugsnag.multi')) {
+                $logger = $this->plugin->make('bugsnag.multi');
+            } else {            
+                $logger = $this->plugin->make('Psr\Log\LoggerInterface');
+            }
+            $logger->error($e);
+
         } catch (Exception $ex) {
             throw $e; // throw the original exception
         } finally {
             $this->renderException($e);
         }
-
-        $logger->error($e);
     }
 
     /**
@@ -86,7 +94,12 @@ class Handler extends LumenHandler
             exit;
 
         } else {
-            return new Response($error, $error['data']['status']);
+            $message = $error['message'];
+            if ($this->isDebugMode()) {
+                $message .= " in {$error['file']}({$error['line']})";
+            }
+
+            wp_die($message);
         }
     }
 }

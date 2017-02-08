@@ -6,12 +6,13 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Contracts\Auth\Authenticatable as AuthenticatableContract;
 use Illuminate\Contracts\Auth\Access\Authorizable as AuthorizableContract;
 use Illuminate\Support\Collection;
+use Illuminate\Database\Eloquent\SoftDeletes;
 
 class User extends Model implements AuthenticatableContract, AuthorizableContract
 {   
     static $profileSettingMetaKeyPrefix = 'profile.';
 
-    use Authenticatable;
+    use Authenticatable, SoftDeletes;
 
     protected $primaryKey = 'ID';
 
@@ -62,6 +63,54 @@ class User extends Model implements AuthenticatableContract, AuthorizableContrac
         }
     }
 
+    protected function runSoftDelete()
+    {
+        $this->updateMeta('_deleted_at', $this->freshTimestamp()->format('c'));
+    }
+
+    protected function performDeleteOnModel()
+    {
+        if ($this->forceDeleting) {
+            return wp_delete_user($this->id);
+        }
+
+        return $this->runSoftDelete();
+    }
+
+    public function restore()
+    {
+        $this->deleteMeta('_deleted_at');
+    }
+
+    public function trashed()
+    {
+        return !is_null($this->deleted_at);
+    }
+
+    public function getDeletedAtColumn()
+    {
+        throw new \Exception("User soft-deleting is provided by meta data");
+    }
+
+    function getDeletedAtAttribute()
+    {
+        $meta = $this->meta('_deleted_at');
+        if ($value = $meta->first()) {
+            return \Carbon\Carbon::parse($value);    
+        }
+        return null;
+    }
+
+    function getCreatedAtAttribute()
+    {
+        return $this->user_registered;
+    }
+
+    function setCreatedAtAttribute($value)
+    {
+        $this->user_registered = $value;
+    }
+
     function getIdAttribute()
     {
         return !empty($this->attributes['ID']) ? $this->attributes['ID'] : null;
@@ -100,8 +149,13 @@ class User extends Model implements AuthenticatableContract, AuthorizableContrac
         return update_user_meta($this->id, $name, $value);
     }
 
-    function addMeta($name, $value) {
-        return add_user_meta($this->id, $name, $value);
+    function addMeta($name, $value, $unique = false) {
+        return add_user_meta($this->id, $name, $value, $unique);
+    }
+
+    function deleteMeta($name)
+    {
+        return delete_user_meta($this->id, $name);
     }
 
     function getGravatarAttribute()
@@ -152,20 +206,20 @@ class User extends Model implements AuthenticatableContract, AuthorizableContrac
 
     function deleteProfileSetting($name)
     {
-        return delete_user_meta($this->id, static::$profileSettingMetaKeyPrefix.$name);
+        return $this->deleteMeta(static::$profileSettingMetaKeyPrefix.$name);
     }
 
     function addProfileSetting($name, $value = null, $unique = false)
     {
         $meta_key = static::$profileSettingMetaKeyPrefix.$name;
-        add_user_meta($this->id, $meta_key, $value, $unique);
+        $this->addMeta($meta_key, $value, $unique);
         return $this->getProfileSettings($name);
     }
 
     function updateProfileSetting($name, $value = null)
     {
         $meta_key = static::$profileSettingMetaKeyPrefix.$name;
-        update_user_meta($this->id, $meta_key, $value);
+        $this->updateMeta($this->id, $meta_key, $value);
         return $this->getProfileSettings($name);
     }
 

@@ -1,5 +1,16 @@
 # CHANGELOG
 
+## v1.3.10
+
+* Fixed: the localized messages file for validation errors was missing
+* Added generators for using the CLI to quickly create new CPTs and Console commands
+* Added Concern called CanRetryThings to introduce a simple API for calling some arbitrary Closure a certain number of times before failing gracefully to some other system
+* Removed dependency between default exception Handler and Router by moving error response building to a Concern called BuildsErrorResponses
+* Added alias for "post_name" field to Post model; now you can just call $post->name
+* Fixed: Logging, so that we can see what the hell is going on
+* Autodetect Bugsnag logger, and if found, use its multi-logger for logging errors to both Bugsnag and the local log file
+* Fixed: Invoking artisan commands was requiring some strange syntax for argument passing; this has now been normalized, and these commands now run almost identically to the way they do in a standard Laravel or Lumen context—from argument processing, to color-coding
+
 ## v1.3.9
 
 * Add Plugin::setCLICommand for modifying default command namespace

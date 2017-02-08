@@ -499,20 +499,30 @@ class Post extends Eloquent implements CustomSchema {
 		// TODO: update post_modified accordingly
 	}
 
+	function getUpdatedAtAttribute()
+	{
+		return !empty($this->attributes['post_modified']) ? Carbon::parse($this->attributes['post_modified']) : null;
+	}
+
 	function setCreatedAtAttribute($value)
 	{
 		$this->attributes['post_date'] = Carbon::parse($value);
 		// TODO: update post_date accordingly
 	}
 
-	function getUpdatedAtAttribute()
-	{
-		return !empty($this->attributes['post_modified']) ? Carbon::parse($this->attributes['post_modified']) : null;
-	}
-
 	function getCreatedAtAttribute()
 	{
 		return !empty($this->attributes['post_date']) ? Carbon::parse($this->attributes['post_date']) : null;
+	}
+
+	function setNameAttribute($value)
+	{
+		$this->attributes['post_name'] = $value;
+	}
+
+	function getNameAttribute()
+	{
+		return !empty($this->attributes['post_name']) ? $this->attributes['post_name'] : null;
 	}
 
 	/**

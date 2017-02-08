@@ -50,7 +50,7 @@ class Kernel implements KernelContract
     {
         $this->app = $app;
 
-        $this->app->prepareForConsoleCommand($this->aliases);
+        $this->app->prepareForConsoleCommand($this, $this->aliases);
 
         $this->defineConsoleSchedule();
     }
@@ -177,6 +177,11 @@ class Kernel implements KernelContract
         return array_merge($this->commands, [
             'Illuminate\Console\Scheduling\ScheduleRunCommand',
         ]);
+    }
+
+    function setCommands($commands)
+    {
+        $this->commands = $commands;
     }
 
     /**

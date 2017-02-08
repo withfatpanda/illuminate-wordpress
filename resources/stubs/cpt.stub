@@ -1,0 +1,31 @@
+<?php
+namespace DummyNamespace;
+
+use FatPanda\Illuminate\WordPress\Models\Post;
+
+class DummyClass extends Post {
+
+  protected $type = 'dummy_type';
+
+  /**
+   * Set to true to allow this Custom Post Type to be
+   * queried by public requests
+   * 
+   * @var bool
+   */
+  protected $public = false;
+
+  /**
+   * Set to true to allow for a hierarchical (parent/child)
+   * relationship between models of this type
+   */
+  protected $hiearchical = false;
+
+  /**
+   * Set to true to allow this model to be queried via
+   * the REST API; this is similar to $public, above, but
+   * is specific to queries made by REST.
+   */
+  protected $show_in_rest = false;
+
+}
