@@ -1,5 +1,9 @@
 # CHANGELOG
 
+## v1.3.11
+
+* Fix travis CI by using vendor-loaded phpunit instead of global
+
 ## v1.3.10
 
 * Fixed: the localized messages file for validation errors was missing
