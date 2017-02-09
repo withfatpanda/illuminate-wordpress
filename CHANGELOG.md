@@ -1,5 +1,10 @@
 # CHANGELOG
 
+## v1.3.14
+
+* Simplify access to user email with accessor/mutator for User::$email
+* Stop passing Route object to controller invocations, and instead, start using parameter names to try to pull bounded objects from Container, which is fucking awesome
+
 ## v1.3.13
 
 * Smarter default error handling: clearer messaging, and different output for debugging mode vs. standard users

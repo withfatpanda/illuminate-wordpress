@@ -101,6 +101,16 @@ class User extends Model implements AuthenticatableContract, AuthorizableContrac
         return null;
     }
 
+    function getEmailAttribute()
+    {
+        return $this->user_email;
+    }
+
+    function setEmailAttribute($value)
+    {
+        return $this->user_email = $value;
+    }
+
     function getCreatedAtAttribute()
     {
         return $this->user_registered;
@@ -135,7 +145,7 @@ class User extends Model implements AuthenticatableContract, AuthorizableContrac
     {
         $name = trim("{$this->first_name} {$this->last_name}");
         if (empty($name)) {
-            $name = $this->display_name;
+            $name = trim($this->display_name);
         }
         return $name;
     }
@@ -221,6 +231,11 @@ class User extends Model implements AuthenticatableContract, AuthorizableContrac
         $meta_key = static::$profileSettingMetaKeyPrefix.$name;
         $this->updateMeta($this->id, $meta_key, $value);
         return $this->getProfileSettings($name);
+    }
+
+    function __toString()
+    {
+        return $this->name;
     }
 
     static function makePrivateActionLink($user, $userMetaField = '_private', $flush = false, $length = 12)

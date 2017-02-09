@@ -327,20 +327,22 @@ class Router extends ServiceProvider {
 			for ($i=1; $i<count($params); $i++) {
 				$param = $params[$i];
 
-				// if the param has no type, just map the matching
-				// argument by numeric order (if it exists)
+				// if the param has no type 
 				if (!$param->hasType()) {
-					if (!empty($givenArgs[$i])) {
-						$args[] = $givenArgs[$i];
-					}
+
+					if ($this->getPlugin()->bound($param->name)) {
+						$args[] = $this->getPlugin()->make($param->name);
+					}	
+
 				} else {
 					$class = $param->getClass();
 					// map in plugin
 					if ($class->isSubclassOf(\Illuminate\Container\Container::class)) {
 						$args[] = $this->getPlugin();
+
 					// otherwise, use the service container to build whatever
 					} else {
-						$args[] = $this->getPlugin()->make((string) $class);
+						$args[] = $this->getPlugin()->make($class->name);
 					}
 				}
 			}
