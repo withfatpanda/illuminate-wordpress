@@ -1,5 +1,9 @@
 # CHANGELOG
 
+## v1.3.13
+
+* Smarter default error handling: clearer messaging, and different output for debugging mode vs. standard users
+
 ## v1.3.12
 
 * Implement super basic UrlGenerator; still need to implement some of the contract, but it's enough for now just to have URL::current(), URL::to(), and URL::secure()

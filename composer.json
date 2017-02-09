@@ -1,12 +1,12 @@
 {
     "name": "withfatpanda/illuminate-wordpress",
-    "version": "1.3.12",
+    "version": "1.3.13",
     "license": "MIT",
     "authors": [
         {
           "name": "Fat Panda",
           "email": "yo@withfatpanda.com",
-          "homepage": "https://withfatpanda.com"
+          "homepage": "https://www.withfatpanda.com"
         }
     ],
     "autoload": {
