@@ -1,5 +1,9 @@
 # CHANGELOG
 
+## v1.3.15
+
+* Fix bug in SimpleProfileSection: was missing import statement for CanBeSavedToProfile
+
 ## v1.3.14
 
 * Simplify access to user email with accessor/mutator for User::$email

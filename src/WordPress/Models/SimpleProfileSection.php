@@ -1,6 +1,8 @@
 <?php
 namespace FatPanda\Illuminate\WordPress\Models;
 
+use FatPanda\Illuminate\WordPress\Concerns\CanBeSavedToProfile;
+
 class SimpleProfileSection {
 
 	use CanBeSavedToProfile;
