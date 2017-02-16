@@ -1,5 +1,9 @@
 # CHANGELOG
 
+## v1.3.16
+
+* Enable built-in cache and queue commands; cache:clear command has been tested; queue:* commands have not been, and probably do not work yet
+
 ## v1.3.15
 
 * Fix bug in SimpleProfileSection: was missing import statement for CanBeSavedToProfile

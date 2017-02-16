@@ -93,6 +93,7 @@ abstract class Plugin extends Container {
     'translator' => 'registerTranslationBindings',
     'cache' => 'registerCacheBindings',
     'cache.store' => 'registerCacheBindings',
+    'Illuminate\Cache\CacheManager' => 'registerCacheBindings',
     'Illuminate\Contracts\Cache\Factory' => 'registerCacheBindings',
     'Illuminate\Contracts\Cache\Repository' => 'registerCacheBindings',
     'Illuminate\Contracts\Encryption\Encrypter' => 'registerEncrypterBindings',
@@ -269,14 +270,14 @@ abstract class Plugin extends Container {
    */
   public function prepareForConsoleCommand(WordPressConsoleKernel $console, $aliases = true)
   {
-    // $this->make('cache');
-    // $this->make('queue');
+    $this->make('cache');
+    $this->make('queue');
 
     $this->configure('database');
 
     $console->setCommands(array_merge($this->commands, [
       Console\Commands\ConsoleMakeCommand::class,
-      Console\Commands\CustomPostTypeMakeCommand::class
+      Console\Commands\CustomPostTypeMakeCommand::class,
     ]));
 
     $this->register('Illuminate\Database\MigrationServiceProvider');
@@ -661,23 +662,27 @@ abstract class Plugin extends Container {
    */
   protected function bootstrapContainer()
   {
-    $this->instance( 'app', $this );
-    $this->instance( 'path', $this->path() );
-    $this->configure( 'scout' );
-    $this->configure( 'services' );
-    $this->configure( 'session' );
-    $this->configure( 'mail' );
+    $this->instance('app', $this);
+    $this->instance('Illuminate\Container\Container', $this);
+
+    $this->instance('path', $this->path());
+
+    $this->configure('scout');
+    $this->configure('services');
+    $this->configure('session');
+    $this->configure('mail');
 
     $this->registerContainerAliases();
 
     $this->bindActionsAndFilters();
 
-    $this->register( \Illuminate\Mail\MailServiceProvider::class );
-    $this->register( \Illuminate\Session\SessionServiceProvider::class );
-    $this->register( Providers\Session\WordPressSessionServiceProvider::class );
-    $this->register( Providers\Scout\ScoutServiceProvider::class );
-    $this->singleton( \Illuminate\Contracts\Console\Kernel::class, WordPressConsoleKernel::class ); 
-    $this->singleton( \Illuminate\Contracts\Debug\ExceptionHandler::class, WordPressExceptionHandler::class );    
+    $this->register(\Illuminate\Mail\MailServiceProvider::class);
+    $this->register(\Illuminate\Session\SessionServiceProvider::class);
+    $this->register(Providers\Session\WordPressSessionServiceProvider::class);
+    $this->register(Providers\Scout\ScoutServiceProvider::class);
+
+    $this->singleton(\Illuminate\Contracts\Console\Kernel::class, WordPressConsoleKernel::class); 
+    $this->singleton(\Illuminate\Contracts\Debug\ExceptionHandler::class, WordPressExceptionHandler::class);   
   }
 
   /**
@@ -776,6 +781,19 @@ abstract class Plugin extends Container {
   }
 
   /**
+   * Find the concrete binding for the given abstract in the contextual binding array.
+   *
+   * @param  string  $abstract
+   * @return string|null
+   */
+  protected function getContextualConcrete($abstract)
+  {
+    if (isset($this->contextual[end($this->buildStack)][$abstract])) {
+      return $this->contextual[end($this->buildStack)][$abstract];
+    }
+  }
+
+  /**
    * Register the core container aliases, just like 
    * a Lumen Application would.
    *
@@ -784,6 +802,7 @@ abstract class Plugin extends Container {
   protected function registerContainerAliases()
   {
     $this->aliases = [
+      'Illuminate\Contracts\Container\Container' => 'app',
       'Illuminate\Contracts\Auth\Factory' => 'auth',
       'Illuminate\Contracts\Auth\Guard' => 'auth.driver',
       'Illuminate\Contracts\Cache\Factory' => 'cache',
@@ -972,7 +991,7 @@ abstract class Plugin extends Container {
    * @param  mixed  $provider
    * @param  array  $options
    * @param  bool   $force
-   * @return \Illuminate\Support\ServiceProvider or null
+   * @return Plugin
    */
   public function register($provider, $options = [], $force = false)
   {
