@@ -1,7 +1,9 @@
 <?php
 namespace FatPanda\WordPress;
 
-class Plugin extends \FatPanda\Illuminate\WordPress\Plugin {
+use FatPanda\Illuminate\WordPress\Plugin as BasePlugin;
+
+class Plugin extends BasePlugin {
 
 	
 	public $hasTriggeredBasicRewriteRule = false;

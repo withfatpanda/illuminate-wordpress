@@ -51,9 +51,9 @@ namespace FatPanda\Illuminate\Support\Concerns;
  *
  *   })->withTimeout($timeout)
  *
- *   // $timeout is the amount of time to wait between
- *   // retry attempts, specified in seconds; the
- *   // default is 1 second
+ *     // $timeout is the amount of time to wait between
+ *     // retry attempts, specified in seconds; the
+ *     // default is 1 second
  *
  *   ->onWait($attempt, function(\Exception $e, $defaultTimeout) {
  *

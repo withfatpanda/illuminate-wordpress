@@ -181,7 +181,7 @@ abstract class Plugin extends Container {
    */
   public function make($abstract, array $parameters = [])
   {
-    $abstract = $this->getAlias($this->normalize($abstract));
+    $abstract = $this->getAlias($abstract);
 
     if (array_key_exists($abstract, $this->availableBindings) && 
         !array_key_exists($this->availableBindings[$abstract], $this->ranServiceBinders)) {
@@ -418,7 +418,7 @@ abstract class Plugin extends Container {
     $this->singleton('db', function () {
       return $this->loadComponent(
         'database', [
-          'Illuminate\Database\DatabaseServiceProvider',
+          'FatPanda\Illuminate\WordPress\Providers\Database\DatabaseServiceProvider',
           'FatPanda\Illuminate\WordPress\Providers\Pagination\PaginationServiceProvider',
         ], 'db'
       );
@@ -676,8 +676,8 @@ abstract class Plugin extends Container {
 
     $this->bindActionsAndFilters();
 
-    $this->register(\Illuminate\Mail\MailServiceProvider::class);
     $this->register(\Illuminate\Session\SessionServiceProvider::class);
+    $this->register(\FatPanda\Illuminate\WordPress\Providers\Mail\MailServiceProvider::class);
     $this->register(Providers\Session\WordPressSessionServiceProvider::class);
     $this->register(Providers\Scout\ScoutServiceProvider::class);
 
@@ -933,7 +933,7 @@ abstract class Plugin extends Container {
     }
 
     $this->pluginData = get_plugin_data($this->mainFile);
-    
+
     foreach($this->pluginData as $key => $value) {
       $propertyName = Str::camel($key);
       $this->{$propertyName} = $value;

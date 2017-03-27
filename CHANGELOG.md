@@ -1,5 +1,10 @@
 # CHANGELOG
 
+## v1.4.0
+
+* Upgraded Laravel dependencies from 5.3 to 5.4
+* Made WP test installation file executable
+
 ## v1.3.16
 
 * Enable built-in cache and queue commands; cache:clear command has been tested; queue:* commands have not been, and probably do not work yet
