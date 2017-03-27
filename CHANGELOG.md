@@ -1,5 +1,9 @@
 # CHANGELOG
 
+## v1.4.1
+
+* Version bump to signify bugfixes that I thought I had successfully force-overridden
+
 ## v1.4.0
 
 * Upgraded Laravel dependencies from 5.3 to 5.4
