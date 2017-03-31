@@ -42,8 +42,6 @@ abstract class Plugin extends Container {
 
   protected $basePath;
 
-  protected $version;
-
   /**
    * Custom Post Types and Custom Taxonomies that need to be registered by this plugin.
    *
@@ -940,7 +938,9 @@ abstract class Plugin extends Container {
 
     foreach($this->pluginData as $key => $value) {
       $propertyName = Str::camel($key);
-      $this->{$propertyName} = $value;
+      $this->bind($propertyName, function() use ($value) {
+        return $value;
+      });
     }
 
     $this->loadTextDomain();

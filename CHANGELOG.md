@@ -1,5 +1,9 @@
 # CHANGELOG
 
+## v1.4.4
+
+* Fix metadata bug
+
 ## v1.4.3
 
 * Added post-create-project script for generating bootstrap and plugin subclass for Bamboo
