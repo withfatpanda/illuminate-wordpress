@@ -11,7 +11,7 @@ class Plugin extends BasePlugin {
    * @var array
    */
   protected $commands = [
-    // e.g., YourNamespace\Console\Commands\YourCommand::class
+    // e.g., Console\Commands\YourCommand::class
   ];
   
   /**

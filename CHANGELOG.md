@@ -1,5 +1,9 @@
 # CHANGELOG
 
+## v1.4.3
+
+* Added post-create-project script for generating bootstrap and plugin subclass for Bamboo
+
 ## v1.4.2
 
 * Fix bugs in our MailServiceProvider implementation

@@ -1,6 +1,8 @@
 <?php
 namespace FatPanda\Illuminate\WordPress;
 
+use Composer\Script\Event as ComposerEvent;
+
 use Illuminate\Support\Str;
 use Illuminate\Support\Arr;
 use Illuminate\Container\Container;
@@ -1225,6 +1227,58 @@ abstract class Plugin extends Container {
   function unregister($class)
   {
     unset($this->registeredDataTypes[(string) $class]);
+  }
+
+  static function postCreateProject(ComposerEvent $event)
+  {
+    $io = $event->getIO();
+
+    $stubs = realpath(__DIR__.'/../../resources/stubs');
+
+    if ($io->isInteractive()) {
+      
+      $io->write('<info>Define plugin headers. Press enter key for default.</info>');
+
+      $default_headers = [
+        [ 'Plugin Name', '@@PLUGIN_NAME@@', 'My Plugin' ],
+        [ 'Plugin URI', '@@PLUGIN_URI@@', 'https://' ],
+        [ 'Description', '@@PLUGIN_DESCRIPTION@@', 'My awesome plugin, made with Bamboo' ],
+        [ 'Version', '@@PLUGIN_VERSION@@', '1.0.0' ],
+        [ 'Author', '@@PLUGIN_AUTHOR@@', 'Me' ],
+        [ 'Author URI', '@@PLUGIN_AUTHOR_URI@@', 'https://' ],
+        [ 'License', '@@PLUGIN_LICENSE@@', 'GPLv2' ],
+        [ 'License URI', '@@PLUGIN_LICENSE_URI@@', 'https://www.gnu.org/licenses/old-licenses/gpl-2.0.en.html' ],
+        [ 'Text Domain', '@@PLUGIN_TEXT_DOMAIN@@', function($headers) {
+          return Str::lower(Str::camel($headers['pluginName']['value']));
+        } ],
+      ];
+
+      $headers = [];
+
+      foreach($default_headers as $config) {
+        $default = is_callable($config[2]) ? $config[2]($headers) : $config[2];
+        $headers[Str::camel($config[0])] = [
+          'value' => $io->ask("<info>{$config[0]} [<comment>{$default}</comment>]:</info> ", $default),
+          'token' => $config[1]
+        ];
+      }
+
+      file_put_contents('bootstrap.php', str_replace(
+        array_map(function($header) {
+          return $header['token'];
+        }, $headers), 
+        array_map(function($header) {
+          return $header['value'];
+        }, $headers), 
+        file_get_contents($stubs.'/bootstrap.stub')
+      ));
+
+      $defaultNamespace = Str::studly($headers['pluginName']['value']);
+      $namespace = $io->ask("<info>Namespace: [<comment>{$defaultNamespace}</comment>]:</info> ", $defaultNamespace);
+
+      file_put_contents('src/plugin.php', str_replace([ 'DummyNamespace' ], [ $namespace ], file_get_contents($stubs.'/plugin.stub')));
+
+    }
   }
 
 }
