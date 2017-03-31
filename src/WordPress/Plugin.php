@@ -40,6 +40,8 @@ abstract class Plugin extends Container {
 
   protected $basePath;
 
+  protected $version;
+
   /**
    * Custom Post Types and Custom Taxonomies that need to be registered by this plugin.
    *
