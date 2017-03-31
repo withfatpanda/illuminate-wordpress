@@ -6,6 +6,9 @@ use Swift_Mailer;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Str;
 use Illuminate\Support\ServiceProvider;
+use Illuminate\Mail\Mailer;
+use Illuminate\Mail\TransportManager;
+use Illuminate\Mail\Markdown;
 
 class MailServiceProvider extends ServiceProvider
 {

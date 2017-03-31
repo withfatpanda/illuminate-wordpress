@@ -1,5 +1,9 @@
 # CHANGELOG
 
+## v1.4.2
+
+* Fix bugs in our MailServiceProvider implementation
+
 ## v1.4.1
 
 * Version bump to signify bugfixes that I thought I had successfully force-overridden
