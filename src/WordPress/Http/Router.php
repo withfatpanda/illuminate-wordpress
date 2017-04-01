@@ -26,8 +26,6 @@ class Router extends ServiceProvider {
 
 	protected $finalized = false;
 
-	private static $resourcesActions;
-
 	private static $requestMethods = ['get', 'post', 'put', 'patch', 'delete'];
 
 	private static $restServerConventions = [
@@ -54,7 +52,7 @@ class Router extends ServiceProvider {
 	function __construct(Plugin $plugin) {
 		$this->plugin = $plugin;
 
-		static::setupResourceActions();
+		$this->setupResourceActions();
 		
 		$this->defaultPermissionCallback = function(\WP_REST_Request $request) {
 			return is_user_logged_in();
@@ -115,86 +113,78 @@ class Router extends ServiceProvider {
 		return $this;
 	}
 
-	/**
-	 * This static property has to be setup in a function because
-	 * PHP doesn't allow for us to use functions to create property values.
-	 */
-	private static function setupResourceActions()
+	function setupResourceActions()
 	{
-		if (empty(self::$resourcesActions)) {
-
-			 self::$resourcesActions = [
-				'index' => [
-					'methods' => 'GET',
-					'route' => '',
-					'args' => [
-						'order' => [
-							// TODO: add description
-							'type' => 'string',
-							'enum' => [
-								'asc', 'desc'
-							],
-							'default' => 'asc'
+		$this->resourceActions = [
+			'index' => [
+				'methods' => 'GET',
+				'route' => '',
+				'args' => [
+					'order' => [
+						// TODO: add description
+						'type' => 'string',
+						'enum' => [
+							'asc', 'desc'
 						],
-						'orderby' => [
-							// TODO: add description
-							'type' => 'string',
-							'default' => 'title'
-						],
-						'page' => [
-							// TODO: add description
-							'type' => 'integer',
-							'default' => 1
-						],
-						'per_page' => [
-							// TODO: add description
-							'type' => 'integer',
-							'default' => 10
-						]
+						'default' => 'asc'
+					],
+					'orderby' => [
+						// TODO: add description
+						'type' => 'string',
+						'default' => 'title'
+					],
+					'page' => [
+						// TODO: add description
+						'type' => 'integer',
+						'default' => 1
+					],
+					'per_page' => [
+						// TODO: add description
+						'type' => 'integer',
+						'default' => 10
 					]
-				],
-
-				'create' => [
-					'methods' => 'GET',
-					'route' => '/create',
-				],
-
-				'store' => [
-					'methods' => 'POST',
-					'route' => '',
-				],
-
-				'show' => [
-					'methods' => 'GET',
-					'route' => '/%s',
-					'args' => [
-						'fields' => [
-							'type' => 'string',
-							'description' => _( 'A comma-separated list of the fields that should be included' ),
-							'sanitize_callback' => function($value) {
-								return !is_array($value) ? preg_split('/,\s*/', $value) : $value;
-							}
-						]
-					]
-				],
-
-				'edit' => [
-					'methods' => 'GET',
-					'route' => '/%s/edit',
-				],
-
-				'update' => [
-					'methods' => 'PUT, PATCH',
-					'route' => '/%s',
-				],
-
-				'destroy' => [
-					'methods' => 'DELETE',
-					'route' => '/%s',
 				]
-			];
-			
-		}
+			],
+
+			'create' => [
+				'methods' => 'GET',
+				'route' => '/create',
+			],
+
+			'store' => [
+				'methods' => 'POST',
+				'route' => '',
+			],
+
+			'show' => [
+				'methods' => 'GET',
+				'route' => '/%s',
+				'args' => [
+					'fields' => [
+						'type' => 'string',
+						'description' => _( 'A comma-separated list of the fields that should be included' ),
+						'sanitize_callback' => function($value) {
+							return !is_array($value) ? preg_split('/,\s*/', $value) : $value;
+						}
+					]
+				]
+			],
+
+			'edit' => [
+				'methods' => 'GET',
+				'route' => '/%s/edit',
+			],
+
+			'update' => [
+				'methods' => 'PUT, PATCH',
+				'route' => '/%s',
+			],
+
+			'destroy' => [
+				'methods' => 'DELETE',
+				'route' => '/%s',
+			]
+		];
 	}
 
 	/**
@@ -553,7 +543,7 @@ class Router extends ServiceProvider {
 		}		
 
 		// by default, create routes for all known actions
-		$actions = array_keys(self::$resourcesActions);
+		$actions = array_keys($this->resourceActions);
 
 		if (!empty($options['only'])) {
 			$actions = $options['only'];
@@ -571,11 +561,11 @@ class Router extends ServiceProvider {
 
 		foreach($actions as $action) {
 			// make sure this action is one we know how to process
-			if (empty(self::$resourcesActions[$action])) {
-				throw new \Exception("Action [$action] is unrecognized; please use one of: ".implode(',', array_keys(self::$resourcesActions)));
+			if (empty($this->resourceActions[$action])) {
+				throw new \Exception("Action [$action] is unrecognized; please use one of: ".implode(',', array_keys($this->resourceActions)));
 			}
 			// get the action defintion
-			$def = self::$resourcesActions[$action];
+			$def = $this->resourceActions[$action];
 			// invoke Router::route 
 			$route = call_user_func_array([ $this, 'route'], [
 				// the method is specified by the action definition:

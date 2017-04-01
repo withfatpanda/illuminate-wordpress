@@ -1,5 +1,9 @@
 # CHANGELOG
 
+## v1.4.5
+
+* Change Router::$resourcesActions from static property to instance property Router::$resourceAction; this way, a plugin developer can set global resource actions to his liking
+
 ## v1.4.4
 
 * Fix metadata bug
