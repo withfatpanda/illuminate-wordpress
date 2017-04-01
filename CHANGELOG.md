@@ -1,5 +1,9 @@
 # CHANGELOG
 
+## v1.4.6
+
+* Add composer.stub for Bamboo plugin generation
+
 ## v1.4.5
 
 * Change Router::$resourcesActions from static property to instance property Router::$resourceAction; this way, a plugin developer can set global resource actions to his liking

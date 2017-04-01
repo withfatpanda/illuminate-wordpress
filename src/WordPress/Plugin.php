@@ -1241,11 +1241,11 @@ abstract class Plugin extends Container {
 
       $default_headers = [
         [ 'Plugin Name', '@@PLUGIN_NAME@@', 'My Plugin' ],
-        [ 'Plugin URI', '@@PLUGIN_URI@@', 'https://' ],
+        [ 'Plugin URI', '@@PLUGIN_URI@@', 'https://example.com' ],
         [ 'Description', '@@PLUGIN_DESCRIPTION@@', 'My awesome plugin, made with Bamboo' ],
         [ 'Version', '@@PLUGIN_VERSION@@', '1.0.0' ],
         [ 'Author', '@@PLUGIN_AUTHOR@@', 'Me' ],
-        [ 'Author URI', '@@PLUGIN_AUTHOR_URI@@', 'https://' ],
+        [ 'Author URI', '@@PLUGIN_AUTHOR_URI@@', 'https://example.com' ],
         [ 'License', '@@PLUGIN_LICENSE@@', 'GPLv2' ],
         [ 'License URI', '@@PLUGIN_LICENSE_URI@@', 'https://www.gnu.org/licenses/old-licenses/gpl-2.0.en.html' ],
         [ 'Text Domain', '@@PLUGIN_TEXT_DOMAIN@@', function($headers) {
@@ -1278,6 +1278,55 @@ abstract class Plugin extends Container {
 
       file_put_contents('src/plugin.php', str_replace([ 'DummyNamespace' ], [ $namespace ], file_get_contents($stubs.'/plugin.stub')));
 
+      $composer_defaults = [
+        [ 'Composer Name', '@@COMPOSER_NAME@@', Str::lower( Str::studly($headers['author']['value']).'/'.Str::studly($headers['pluginName']['value']) ) ],
+        [ 'Composer Author E-mail', '@@COMPOSER_AUTHOR_EMAIL@@', 'me@example.com' ],
+      ];
+
+      $composer = [];
+
+      foreach($composer_defaults as $config) {
+        $default = is_callable($config[2]) ? $config[2]($headers) : $config[2];
+        $composer[Str::camel($config[0])] = [
+          'value' => $io->ask("<info>{$config[0]} [<comment>{$default}</comment>]:</info> ", $default),
+          'token' => $config[1]
+        ];
+      }
+
+      $composer['description'] = [ 
+        'token' => '@@COMPOSER_DESCRIPTION@@', 
+        'value' => $headers['description']['value'] 
+      ];
+
+      $composer['license'] = [ 
+        'token' => '@@COMPOSER_LICENSE@@',
+        'value' => $headers['license']['value'] 
+      ];
+
+      $composer['version'] = [ 
+        'token' => '@@COMPOSER_VERSION@@',
+        'value' => $headers['version']['value'] 
+      ];
+
+      $composer['authorName'] = [ 
+        'token' => '@@COMPOSER_AUTHOR_NAME@@',
+        'value' => $headers['author']['value']
+      ];
+
+      $composer['authorUri'] = [
+        'token' => '@@COMPOSER_AUTHOR_URI@@',
+        'value' => $headers['authorURI']['value']
+      ];
+
+      file_put_contents('composer.json', str_replace(
+        array_map(function($header) {
+          return $header['token'];
+        }, $composer), 
+        array_map(function($header) {
+          return $header['value'];
+        }, $composer), 
+        file_get_contents($stubs.'/composer.stub')
+      ));
     }
   }
 

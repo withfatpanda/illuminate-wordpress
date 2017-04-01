@@ -1,0 +1,28 @@
+{
+    "name": "@@COMPOSER_NAME@@",
+    "description": "@@COMPOSER_DESCRIPTION@@",
+    "type": "wordpress-plugin",
+    "license": "@@COMPOSER_LICENSE@@",
+    "version": "@@COMPOSER_VERSION@@",
+    "authors": [
+        {
+          "name": "@@COMPOSER_AUTHOR_NAME@@",
+          "email": "@@COMPOSER_AUTHOR_EMAIL@@",
+          "homepage": "@@COMPOSER_AUTHOR_URI@@"
+        }
+    ],
+    "autoload": {
+        "classmap": ["src/"]
+    },
+    "require-dev": {
+        "phpunit/phpunit": "5.*"
+    },
+    "autoload-dev": {
+        "classmap": ["tests/"]
+    },
+    "require": {
+        "php": ">=5.6.4",
+        "withfatpanda/illuminate-wordpress": "1.4.*",
+        "composer/installers": "~1.0.12"
+    }
+}
