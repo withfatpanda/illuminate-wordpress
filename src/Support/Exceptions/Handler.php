@@ -94,17 +94,23 @@ class Handler extends LumenHandler
             exit;
 
         } else {
-            $message = sprintf(
-                '<h1>%s</h1><p>%s</p><p><a href="%s">%s</a></p>', 
-                __("Oops!"),
-                __("Something has gone wrong. But don't worry: our developers have been notified, and we're already working on the problem."),
-                home_url('/'),
-                __("Please try the home page")
-            );
-            if ($this->isDebugMode()) {
-                $message = '<h1>' . ( $e->getCode() ?: '500' ) . '</h1>' . sprintf("<pre>{$error['message']} in {$error['file']}({$error['line']})\n%s</pre>", $e->getTraceAsString());
+            if (!$this->plugin->runningInConsole()) {
+
+                $message = sprintf(
+                    '<h1>%s</h1><p>%s</p><p><a href="%s">%s</a></p>', 
+                    __("Oops!"),
+                    __("Something has gone wrong. But don't worry: our developers have been notified, and we're already working on the problem."),
+                    home_url('/'),
+                    __("Please try the home page")
+                );
+
+                if ($this->isDebugMode()) {
+                    $message = '<h1>' . ( $e->getCode() ?: '500' ) . '</h1>' . sprintf("<pre>{$error['message']} in {$error['file']}({$error['line']})\n%s</pre>", $e->getTraceAsString());
+                }
+
+                wp_die($message);
+
             }
-            wp_die($message);
         }
     }
 }

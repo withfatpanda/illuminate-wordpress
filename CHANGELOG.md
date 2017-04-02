@@ -1,5 +1,12 @@
 # CHANGELOG
 
+## v1.4.7
+
+* Correct a type conversion error in BuildsErrorResponses::isDebugMode
+* Detect when request is running in console mode and let artisan process and display any Exception
+* Account for some strange changes coming down the pipe in Scheduling\Scheduler; was resulting in a binding bug 
+* Explicitly load config/app in container bootstrap
+
 ## v1.4.6
 
 * Add composer.stub for Bamboo plugin generation

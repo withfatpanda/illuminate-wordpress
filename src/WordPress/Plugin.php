@@ -95,7 +95,6 @@ abstract class Plugin extends Container {
     'translator' => 'registerTranslationBindings',
     'cache' => 'registerCacheBindings',
     'cache.store' => 'registerCacheBindings',
-    'Illuminate\Cache\CacheManager' => 'registerCacheBindings',
     'Illuminate\Contracts\Cache\Factory' => 'registerCacheBindings',
     'Illuminate\Contracts\Cache\Repository' => 'registerCacheBindings',
     'Illuminate\Contracts\Encryption\Encrypter' => 'registerEncrypterBindings',
@@ -277,14 +276,12 @@ abstract class Plugin extends Container {
 
     $this->configure('database');
 
+    $this->register('Illuminate\Database\MigrationServiceProvider');
+
     $console->setCommands(array_merge($this->commands, [
       Console\Commands\ConsoleMakeCommand::class,
       Console\Commands\CustomPostTypeMakeCommand::class,
     ]));
-
-    $this->register('Illuminate\Database\MigrationServiceProvider');
-    $this->register('Illuminate\Database\SeedServiceProvider');
-    $this->register('Illuminate\Queue\ConsoleServiceProvider');
   }
 
   /**
@@ -669,6 +666,7 @@ abstract class Plugin extends Container {
 
     $this->instance('path', $this->path());
 
+    $this->configure('app');
     $this->configure('scout');
     $this->configure('services');
     $this->configure('session');

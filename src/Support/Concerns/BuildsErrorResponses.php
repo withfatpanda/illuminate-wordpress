@@ -47,7 +47,7 @@ trait BuildsErrorResponses {
 
   public function isDebugMode()
   {
-     return ( defined('WP_DEBUG') && WP_DEBUG ) || getenv('APP_DEBUG') || current_user_can('administrator');
+     return ( defined('WP_DEBUG') && WP_DEBUG ) || env('APP_DEBUG') || current_user_can('administrator');
   }
 
 

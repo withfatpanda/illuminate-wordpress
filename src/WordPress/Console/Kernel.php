@@ -5,10 +5,12 @@ use Exception;
 use Throwable;
 use RuntimeException;
 use Illuminate\Container\Container;
-use Illuminate\Console\Scheduling\Schedule;
+use FatPanda\Illuminate\WordPress\Console\Scheduling\Schedule;
 use Illuminate\Console\Application as Artisan;
+use Illuminate\Contracts\Cache\Repository as Cache;
 use Illuminate\Contracts\Console\Kernel as KernelContract;
 use Symfony\Component\Debug\Exception\FatalThrowableError;
+
 
 class Kernel implements KernelContract
 {
@@ -51,7 +53,7 @@ class Kernel implements KernelContract
         $this->app = $app;
 
         $this->app->prepareForConsoleCommand($this, $this->aliases);
-
+        
         $this->defineConsoleSchedule();
     }
 
@@ -63,7 +65,7 @@ class Kernel implements KernelContract
     protected function defineConsoleSchedule()
     {
         $this->app->instance(
-            'Illuminate\Console\Scheduling\Schedule', $schedule = new Schedule
+            'Illuminate\Console\Scheduling\Schedule', $schedule = new Schedule($this->app[Cache::class])
         );
 
         $this->schedule($schedule);
