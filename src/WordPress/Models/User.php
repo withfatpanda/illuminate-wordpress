@@ -229,7 +229,7 @@ class User extends Model implements AuthenticatableContract, AuthorizableContrac
     function updateProfileSetting($name, $value = null)
     {
         $meta_key = static::$profileSettingMetaKeyPrefix.$name;
-        $this->updateMeta($this->id, $meta_key, $value);
+        $this->updateMeta($meta_key, $value);
         return $this->getProfileSettings($name);
     }
 

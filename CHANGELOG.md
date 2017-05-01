@@ -1,5 +1,9 @@
 # CHANGELOG
 
+## v1.4.8
+
+* Fix bug in User::updateProfileSetting
+
 ## v1.4.7
 
 * Correct a type conversion error in BuildsErrorResponses::isDebugMode
